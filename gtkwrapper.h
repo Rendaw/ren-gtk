@@ -373,6 +373,7 @@ class BlockLabel : public Widget
 {
 	public:
 		BlockLabel(const String &Text);
+		void SetText(const String &NewText);
 };
 
 class Sticker : public Widget

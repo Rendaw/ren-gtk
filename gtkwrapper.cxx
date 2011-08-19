@@ -648,6 +648,9 @@ void LabelBox::SetText(const String &NewText)
 // Block (word wrapped) label
 BlockLabel::BlockLabel(const String &Text) : Widget(gtk_label_new(Text.c_str()))
 	{ gtk_label_set_line_wrap(GTK_LABEL(Data), true); }
+	
+void BlockLabel::SetText(const String &NewText)
+	{ gtk_label_set_text(GTK_LABEL(Data), NewText.c_str()); }
 
 // Sticker, an image
 Sticker::Sticker(const String &Filename) : Widget(gtk_image_new_from_file(Filename.c_str()))

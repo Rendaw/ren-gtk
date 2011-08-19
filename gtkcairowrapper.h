@@ -52,10 +52,10 @@ class VectorArea : private Pool<std::pair<int, VectorArea *>, FontData>
 
 		void SetFontSize(unsigned int NewSize);
 		float GetTextWidth(const String &Text);
-		void DrawNumber(float Number, TextAlignment Alignment, const FlatVector &Position);
-		void DrawHex(unsigned int Number, TextAlignment Alignment, const FlatVector &Position);
-		void DrawText(const String &Text, TextAlignment Alignment, const FlatVector &Position);
-		void DrawText(const String &Text, const FlatVector &Alignment, const FlatVector &Position);
+		void PrintNumber(float Number, TextAlignment Alignment, const FlatVector &Position);
+		void PrintHex(unsigned int Number, TextAlignment Alignment, const FlatVector &Position);
+		void Print(const String &Text, TextAlignment Alignment, const FlatVector &Position);
+		void Print(const String &Text, const FlatVector &Alignment, const FlatVector &Position);
 		void DrawLine(const FlatVector &Start, const FlatVector &End);
 
 		void DrawRectangle(const FlatVector &Start, const FlatVector &Size);

@@ -173,21 +173,21 @@ float VectorArea::GetTextWidth(const String &Text)
 	return Extents.width;
 }
 
-void VectorArea::DrawNumber(float Number, TextAlignment Alignment, const FlatVector &Position)
+void VectorArea::PrintNumber(float Number, TextAlignment Alignment, const FlatVector &Position)
 {
 	StringStream ToText;
 	ToText << Number;
-	DrawText(ToText.str(), Alignment, Position);
+	Print(ToText.str(), Alignment, Position);
 }
 
-void VectorArea::DrawHex(unsigned int Number, TextAlignment Alignment, const FlatVector &Position)
+void VectorArea::PrintHex(unsigned int Number, TextAlignment Alignment, const FlatVector &Position)
 {
 	StringStream ToText;
 	ToText << std::hex << Number;
-	DrawText(ToText.str(), Alignment, Position);
+	Print(ToText.str(), Alignment, Position);
 }
 
-void VectorArea::DrawText(String const &Text, TextAlignment Alignment, FlatVector const &Position)
+void VectorArea::Print(String const &Text, TextAlignment Alignment, FlatVector const &Position)
 {
 	cairo_text_extents_t Extents;
 	cairo_text_extents(CairoContext, Text.c_str(), &Extents);
@@ -206,7 +206,7 @@ void VectorArea::DrawText(String const &Text, TextAlignment Alignment, FlatVecto
 	cairo_show_text(CairoContext, Text.c_str());
 }
 
-void VectorArea::DrawText(String const &Text, FlatVector const &Alignment, FlatVector const &Position)
+void VectorArea::Print(String const &Text, FlatVector const &Alignment, FlatVector const &Position)
 {
 	cairo_text_extents_t Extents;
 	cairo_text_extents(CairoContext, Text.c_str(), &Extents);
