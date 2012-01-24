@@ -1,6 +1,8 @@
 #ifndef gtkcairowrapper_h
 #define gtkcairowrapper_h
 
+#include <functional>
+
 #include "gtkwrapper.h"
 
 #include <ren-general/rotation.h>
@@ -28,7 +30,7 @@ class FontData : public PoolItem<std::pair<int, VectorArea *>, FontData>
 
 typedef Access<FontData> Font;
 
-class VectorArea : private Pool<std::pair<int, VectorArea *>, FontData>
+class VectorArea : private Pool<std::pair<int, VectorArea *>, FontData> // Deprecated, use Slate below
 {
 	public:
 		VectorArea(void);
@@ -107,6 +109,40 @@ class VectorArea : private Pool<std::pair<int, VectorArea *>, FontData>
 		static gboolean MoveHandler(GtkWidget *Widget, GdkEventMotion *Event, VectorArea *This);
 		static gboolean EnterHandler(GtkWidget *Widget, GdkEventCrossing *Event, VectorArea *This);
 		static gboolean LeaveHandler(GtkWidget *Widget, GdkEventCrossing *Event, VectorArea *This);
+};
+
+class Slate : public VectorArea
+{
+	private:
+		std::function<void (FlatVector const &/*NewSize*/)> ResizeHandler;
+		std::function<void (void)> DrawHandler;
+		std::function<void (FlatVector const &/*Cursor*/, bool /*LeftChanged*/, bool /*MiddleChanged*/, bool /*RightChanged*/)> ClickHandler;
+		std::function<void (FlatVector const &/*Cursor*/, bool /*LeftChanged*/, bool /*MiddleChanged*/, bool /*RightChanged*/)> DeclickHandler;
+		std::function<void (FlatVector const &/*Cursor*/, int /*VerticalScroll*/, int /*HorizontalScroll*/)> ScrollHandler;
+		std::function<void (FlatVector const &/*Cursor*/)> MoveHandler;
+		std::function<void (void)> EnterHandler;
+		std::function<void (void)> LeaveHandler;
+	
+	public:
+		// Construction
+		void SetResizeHandler(decltype(ResizeHandler) const &Handler);
+		void SetDrawHandler(decltype(DrawHandler) const &Handler);
+		void SetClickHandler(decltype(ClickHandler) const &Handler);
+		void SetDeclickHandler(decltype(DeclickHandler) const &Handler);
+		void SetScrollHandler(decltype(ScrollHandler) const &Handler);
+		void SetMoveHandler(decltype(MoveHandler) const &Handler);
+		void SetEnterHandler(decltype(EnterHandler) const &Handler);
+		void SetLeaveHandler(decltype(LeaveHandler) const &Handler);
+		
+	private:
+		void ResizeEvent(FlatVector const &NewSize);
+		void Draw(void);
+		void ClickEvent(FlatVector const &Cursor, bool LeftChanged, bool MiddleChanged, bool RightChanged);
+		void DeclickEvent(FlatVector const &Cursor, bool LeftChanged, bool MiddleChanged, bool RightChanged);
+		void ScrollEvent(FlatVector const &Cursor, int VerticalScroll, int HorizontalScroll);
+		void MoveEvent(FlatVector const &Cursor);
+		void EnterEvent(void);
+		void LeaveEvent(void);
 };
 
 #endif

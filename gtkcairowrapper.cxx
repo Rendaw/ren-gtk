@@ -443,3 +443,52 @@ gboolean VectorArea::EnterHandler(GtkWidget *Widget, GdkEventCrossing *Event, Ve
 
 gboolean VectorArea::LeaveHandler(GtkWidget *Widget, GdkEventCrossing *Event, VectorArea *This)
 	{ This->LeaveEvent(); return false; }
+
+// Slate
+void Slate::SetResizeHandler(decltype(ResizeHandler) const &Handler) 
+	{ ResizeHandler = Handler; }
+	
+void Slate::SetDrawHandler(decltype(DrawHandler) const &Handler) 
+	{ DrawHandler = Handler; }
+	
+void Slate::SetClickHandler(decltype(ClickHandler) const &Handler)
+	{ ClickHandler = Handler; }
+	
+void Slate::SetDeclickHandler(decltype(DeclickHandler) const &Handler)
+	{ DeclickHandler = Handler; }
+	
+void Slate::SetScrollHandler(decltype(ScrollHandler) const &Handler)
+	{ ScrollHandler = Handler; }
+	
+void Slate::SetMoveHandler(decltype(MoveHandler) const &Handler)
+	{ MoveHandler = Handler; }
+	
+void Slate::SetEnterHandler(decltype(EnterHandler) const &Handler)
+	{ EnterHandler = Handler; }
+	
+void Slate::SetLeaveHandler(decltype(LeaveHandler) const &Handler)
+	{ LeaveHandler = Handler; }
+	
+void Slate::ResizeEvent(FlatVector const &NewSize)
+	{ if (ResizeHandler) ResizeHandler(NewSize); }
+	
+void Slate::Draw(void)
+	{ if (DrawHandler) DrawHandler(); }
+	
+void Slate::ClickEvent(FlatVector const &Cursor, bool LeftChanged, bool MiddleChanged, bool RightChanged)
+	{ if (ClickHandler) ClickHandler(Cursor, LeftChanged, MiddleChanged, RightChanged); }
+
+void Slate::DeclickEvent(FlatVector const &Cursor, bool LeftChanged, bool MiddleChanged, bool RightChanged)
+	{ if (DeclickHandler) DeclickHandler(Cursor, LeftChanged, MiddleChanged, RightChanged); }
+	
+void Slate::ScrollEvent(FlatVector const &Cursor, int VerticalScroll, int HorizontalScroll)
+	{ if (ScrollHandler) ScrollHandler(Cursor, VerticalScroll, HorizontalScroll); }
+	
+void Slate::MoveEvent(FlatVector const &Cursor)
+	{ if (MoveHandler) MoveHandler(Cursor); }
+	
+void Slate::EnterEvent(void)
+	{ if (EnterHandler) EnterHandler(); }
+	
+void Slate::LeaveEvent(void)
+	{ if (LeaveHandler) LeaveHandler(); }
