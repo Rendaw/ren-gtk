@@ -491,16 +491,21 @@ void Scroller::ShowRange(float Start, float End)
 }
 
 // A 2D scroller for only what must necessarily be scrolled in 2D
-CanvasScroller::CanvasScroller(void) : Widget(gtk_scrolled_window_new(NULL, NULL)),
-	HorizontalAdjustment(NULL), VerticalAdjustment(NULL),
+CanvasScroller::CanvasScroller(void) : Widget(gtk_scrolled_window_new(nullptr, nullptr)),
+	InitialAdjustmentCompleted(false),
+	HorizontalAdjustment(nullptr), VerticalAdjustment(nullptr),
 	HorizontalScrollHandler(-1), VerticalScrollHandler(-1)
-	{ gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(Data), GTK_POLICY_ALWAYS, GTK_POLICY_ALWAYS); }
+{ 
+	gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(Data), GTK_POLICY_ALWAYS, GTK_POLICY_ALWAYS); 
+	g_signal_connect(G_OBJECT(Data), "map", G_CALLBACK(InitialStateChangeHandler), this);
+}
 
 void CanvasScroller::Set(GtkWidget *Settee)
 {
 	gtk_scrolled_window_add_with_viewport(GTK_SCROLLED_WINDOW(Data), Settee);
 	
 	HorizontalAdjustment = gtk_scrolled_window_get_hadjustment(GTK_SCROLLED_WINDOW(Data));
+	g_signal_connect(G_OBJECT(HorizontalAdjustment), "changed", G_CALLBACK(InitialStateChangeHandler), this);
 	HorizontalScrollHandler = g_signal_handler_find(HorizontalAdjustment, G_SIGNAL_MATCH_DATA,
 		g_signal_lookup("value-changed", G_TYPE_FROM_INSTANCE(HorizontalAdjustment)),
 		0, NULL, NULL, GTK_VIEWPORT(gtk_bin_get_child(GTK_BIN(Data))));
@@ -523,27 +528,38 @@ void CanvasScroller::ShowRange(FlatVector Start, FlatVector End)
 
 void CanvasScroller::GoTo(FlatVector Position)
 {
-	assert(VerticalAdjustment != NULL);
-	
-	Position -= FlatVector(gtk_adjustment_get_page_size(HorizontalAdjustment),
-		gtk_adjustment_get_page_size(VerticalAdjustment)) * 0.5f;
+	if (InitialAdjustmentCompleted)
+	{
+		assert(VerticalAdjustment != NULL);
+		
+		Position -= FlatVector(gtk_adjustment_get_page_size(HorizontalAdjustment),
+			gtk_adjustment_get_page_size(VerticalAdjustment)) * 0.5f;
 
-	SetAdjustments(Position[0], Position[1]);
+		SetAdjustments(Position[0], Position[1]);
+	}
+	else 
+		InitialAdjustmentFunction = [this, Position]() { GoTo(Position); };
 }
 
 void CanvasScroller::GoToPercent(FlatVector Percent)
 {
-	assert(VerticalAdjustment != NULL);
-	
-	Percent *= FlatVector(gtk_adjustment_get_upper(HorizontalAdjustment) - gtk_adjustment_get_lower(HorizontalAdjustment),
-		gtk_adjustment_get_upper(VerticalAdjustment) - gtk_adjustment_get_lower(VerticalAdjustment));
-	Percent += FlatVector(gtk_adjustment_get_lower(HorizontalAdjustment), gtk_adjustment_get_lower(VerticalAdjustment));
-	Percent -= FlatVector(gtk_adjustment_get_page_size(HorizontalAdjustment), gtk_adjustment_get_page_size(VerticalAdjustment)) * 0.5f;
-	/*std::cout << "GoToPercent: " << Percent.AsString() << " -- horiz lower and upper = " <<
-		gtk_adjustment_get_upper(HorizontalAdjustment) << ", " << gtk_adjustment_get_lower(HorizontalAdjustment) <<
-		" -- vert lower and upper = " << gtk_adjustment_get_upper(VerticalAdjustment) << ", " << 
-		gtk_adjustment_get_lower(VerticalAdjustment) << std::endl;*/
-	SetAdjustments(Percent[0], Percent[1]);
+	if (InitialAdjustmentCompleted)
+	{
+		assert(VerticalAdjustment != NULL);
+		
+		Percent *= FlatVector(
+			gtk_adjustment_get_upper(HorizontalAdjustment) - gtk_adjustment_get_lower(HorizontalAdjustment),
+			gtk_adjustment_get_upper(VerticalAdjustment) - gtk_adjustment_get_lower(VerticalAdjustment));
+		Percent += FlatVector(gtk_adjustment_get_lower(HorizontalAdjustment), gtk_adjustment_get_lower(VerticalAdjustment));
+		Percent -= FlatVector(gtk_adjustment_get_page_size(HorizontalAdjustment), gtk_adjustment_get_page_size(VerticalAdjustment)) * 0.5f;
+		/*std::cout << "GoToPercent: " << Percent.AsString() << " -- horiz lower and upper = " <<
+			gtk_adjustment_get_upper(HorizontalAdjustment) << ", " << gtk_adjustment_get_lower(HorizontalAdjustment) <<
+			" -- vert lower and upper = " << gtk_adjustment_get_upper(VerticalAdjustment) << ", " << 
+			gtk_adjustment_get_lower(VerticalAdjustment) << std::endl;*/
+		SetAdjustments(Percent[0], Percent[1]);
+	}
+	else 
+		InitialAdjustmentFunction = [this, Percent]() { GoToPercent(Percent); };
 }
 
 /*void CanvasScroller::Nudge(int Cardinality)
@@ -589,6 +605,25 @@ void CanvasScroller::SetAdjustments(int NewX, int NewY)
 		gtk_signal_handler_unblock(HorizontalAdjustment, HorizontalScrollHandler);
 	gtk_adjustment_set_value(VerticalAdjustment, NewY);
 }
+
+void CanvasScroller::DoInitialAdjustment(void)
+{
+	if (InitialAdjustmentCompleted) return;
+	if ((HorizontalAdjustment == nullptr) || (VerticalAdjustment == nullptr)) return; 
+	if ((gtk_adjustment_get_upper(HorizontalAdjustment) <= 1) ||
+		(gtk_adjustment_get_upper(VerticalAdjustment) <= 1)) return; // Apparently GTK displays things before properly calculating sizes sometimes.  There might be a better way to do this, but this is pretty simple.
+	
+	InitialAdjustmentCompleted = true;
+	
+	if (!InitialAdjustmentFunction) return;
+	
+	InitialAdjustmentFunction();
+	InitialAdjustmentFunction = decltype(InitialAdjustmentFunction)();
+}
+
+void CanvasScroller::InitialStateChangeHandler(void *Unused, CanvasScroller *This)
+	{ This->DoInitialAdjustment(); }
+
 
 ///////////////////////////////////////////////////////////
 // Label wrapper

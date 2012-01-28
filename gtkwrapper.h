@@ -8,6 +8,7 @@
 #include <gtk/gtk.h>
 #include <vector>
 #include <utility>
+#include <functional>
 
 enum DefaultIcons
 {
@@ -318,6 +319,11 @@ class CanvasScroller : public Widget
 		
 	private:
 		void SetAdjustments(int NewX, int NewY);
+		void DoInitialAdjustment(void);
+		static void InitialStateChangeHandler(void *Unused, CanvasScroller *This);
+		
+		bool InitialAdjustmentCompleted;
+		std::function<void(void)> InitialAdjustmentFunction;
 		
 		GtkAdjustment *HorizontalAdjustment, *VerticalAdjustment;
 		gulong HorizontalScrollHandler;
