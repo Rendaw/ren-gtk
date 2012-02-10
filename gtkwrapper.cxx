@@ -117,6 +117,9 @@ void TimedEvent::StopTimer(void)
 	}
 }
 
+unsigned int TimedEvent::GetTimerPeriod(void) const
+	{ return Period; }
+
 gboolean TimedEvent::TimeHandler(TimedEvent *This)
 	{ This->TickEvent(); return true; }
 
@@ -266,6 +269,9 @@ void Dialog::AddFill(GtkWidget *Widget)
 	gtk_box_pack_start(GTK_BOX(gtk_dialog_get_content_area(GTK_DIALOG(Data))), Widget, true, true, 0);
 	gtk_widget_show(Widget);
 }
+
+void Dialog::SetDefaultSize(const FlatVector &DefaultSize)
+	{ gtk_window_set_default_size(GTK_WINDOW(Data), DefaultSize[0], DefaultSize[1]); }
 
 void Dialog::AddAction(GtkWidget *Widget)
 {
@@ -1048,7 +1054,14 @@ void List::Show(int Item)
 
 void List::Select(int NewSelection)
 {
-	assert(NewSelection >= 0);
+	if (NewSelection < 0)
+	{
+		if (Multiline)
+			gtk_tree_selection_unselect_all(gtk_tree_view_get_selection(GTK_TREE_VIEW(ListData)));
+		else gtk_combo_box_set_active_iter(GTK_COMBO_BOX(ListData), nullptr);
+		return;
+	}
+	
 	assert(NewSelection < Added);
 
 	GtkTreeIter Iterator;
@@ -1066,7 +1079,7 @@ void List::Select(int NewSelection)
 	if (Multiline)
 	{
 		GtkTreePath *NewPath = gtk_tree_model_get_path(GTK_TREE_MODEL(Store), &Iterator);
-		gtk_tree_view_set_cursor(GTK_TREE_VIEW(ListData), NewPath, NULL, false);
+		gtk_tree_view_set_cursor(GTK_TREE_VIEW(ListData), NewPath, nullptr, false);
 		gtk_tree_path_free(NewPath);
 	}
 	else

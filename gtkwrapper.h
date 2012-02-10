@@ -66,6 +66,8 @@ class TimedEvent
 
 		void StartTimer(void);
 		void StopTimer(void);
+		
+		unsigned int GetTimerPeriod(void) const;
 
 	protected:
 		virtual void TickEvent(void) = 0;
@@ -175,6 +177,7 @@ class Dialog : public Widget
 		void AddFill(GtkWidget *Widget);
 		void AddAction(GtkWidget *Widget);
 		void AddActionFill(GtkWidget *Widget);
+		void SetDefaultSize(const FlatVector &DefaultSize);
 
 		// Control
 		void Run(void);
@@ -555,6 +558,7 @@ class List : public Widget
 		void Hide(int Item);
 		void Show(int Item);
 		void Select(int NewSelection);
+		void Deselect(void) { Select(-1); }
 
 		int GetSelection(void);
 	private:
