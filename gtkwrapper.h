@@ -30,12 +30,9 @@ namespace GTK
 
 ////////////////////////////////////////////////////////////////
 // Events
-class ActionHandler
-{
-	public:
-		virtual ~ActionHandler(void) {}
-		virtual void Act(void const *Source) = 0;
-};
+typedef std::function<void(void)> ActionHandler;
+typedef std::function<void(void)> InputHandler;
+typedef std::function<bool(unsigned int KeyCode, unsigned int Modifier)> KeyHandler;
 
 ////////////////////////////////////////////////////////////////
 // Base widget
@@ -63,17 +60,18 @@ class TimedEvent
 	public:
 		TimedEvent(unsigned int Milliseconds = 50);
 		virtual ~TimedEvent(void);
+		
+		TimedEvent SetAction(ActionHandler const &Handler);
 
 		void StartTimer(void);
 		void StopTimer(void);
 		
 		unsigned int GetTimerPeriod(void) const;
 
-	protected:
-		virtual void TickEvent(void) = 0;
-
 	private:
 		static gboolean TimeHandler(TimedEvent *This);
+
+		ActionHandler Handler;
 
 		unsigned int Period;
 		int TimerID;
@@ -84,18 +82,14 @@ class TimedEvent
 class KeyboardWidget
 {
 	public:
-		class Handler
-		{
-			public:
-				virtual ~Handler(void);
-				virtual bool OnKey(unsigned int KeyCode, unsigned int Modifier) = 0;
-		};
-		KeyboardWidget(GtkWidget *Data, Handler *Target);
+		KeyboardWidget(GtkWidget *Data);
 		~KeyboardWidget(void);
+
+		void SetHandler(KeyHandler const &Handler);
 
 	private:
 		GtkWidget *Data;
-		Handler *Target;
+		KeyHandler Handler;
 
 		static gboolean KeyHandler(GtkWidget *Widget, GdkEventKey *Event, KeyboardWidget *This);
 		gulong ConnectionID;
@@ -106,13 +100,15 @@ class KeyboardWidget
 class MenuItem : public Widget
 {
 	public:
-		MenuItem(ActionHandler *Handler, String const &Text);
-		MenuItem(ActionHandler *Handler, String const &Text, DefaultIcons const Icon);
-		MenuItem(ActionHandler *Handler, String const &Text, String const &IconFilename);
+		MenuItem(String const &Text);
+		MenuItem(String const &Text, DefaultIcons const Icon);
+		MenuItem(String const &Text, String const &IconFilename);
 		~MenuItem(void);
 
+		void SetAction(ActionHandler const &Handler);
+
 	private:
-		ActionHandler *Handler;
+		ActionHandler Handler;
 
 		static void ClickHandler(GtkMenuItem *MenuWidget, MenuItem *This);
 		gulong ConnectionID;
@@ -121,14 +117,15 @@ class MenuItem : public Widget
 class ToolButton : public Widget
 {
 	public:
-		ToolButton(ActionHandler *Handler, String const &Text);
-		ToolButton(ActionHandler *Handler, String const &Text, DefaultIcons const Icon);
+		ToolButton(String const &Text);
+		ToolButton(String const &Text, DefaultIcons const Icon);
 		~ToolButton(void);
 		
+		void SetAction(ActionHandler const &Handler);
 		void SetPrompt(String const &NewPrompt);
 
 	private:
-		ActionHandler *Handler;
+		ActionHandler Handler;
 
 		static void ClickHandler(GtkToolItem *ToolWidget, ToolButton *This);
 		gulong ConnectionID;
@@ -150,6 +147,8 @@ class Window : public Widget
 		Window(const String &Title, Handler *Target);
 		~Window(void);
 
+		void SetAttemptCloseHandler(std::function<bool(void)> const &Handler); // return true to allow close
+		void SetCloseHandler(std::function<void(void)> const &Handler);
 		void SetIcon(const String &Filename);
 		void SetTitle(const String &NewTitle);
 		void SetFullscreen(bool On);
@@ -164,7 +163,8 @@ class Window : public Widget
 		static void DestroyHandler(GtkWidget *Source, Window *This);
 		gulong DestroyConnectionID;
 
-		Handler *Target;
+		std::function<bool(void)> AttemptCloseHandler;
+		std::function<void(void)> CloseHandler;
 };
 
 class Dialog : public Widget
@@ -186,22 +186,24 @@ class Dialog : public Widget
 		void Close(void);
 };
 
+typedef std::function<void(gint &X, gint &Y)> MenuPositionHandler;
 class PopupMenu
 {
 	public:
 		PopupMenu(void);
 		~PopupMenu(void);
 
+		void SetPositionHandler(MenuPositionHandler const &MenuPositionHandler);
 		void Clear(void);
-
 		MenuItem *Add(MenuItem *NewItem);
 		void AddSeparator(void);
 
 		void Activate(void);
-		void Activate(GtkMenuPositionFunc Positioner, void *PositionSource);
 
 	private:
+		static void PositionCallback(GtkMenu *, gint *X, gint *Y, gboolean *ForceVisible, PopupMenu *This);
 		GtkWidget *MenuData;
+		MenuPositionhandler Handler;
 };
 
 ////////////////////////////////////////////////////////////////
@@ -265,25 +267,15 @@ class RatioFrame : public Widget
 class Notebook : public Widget
 {
 	public:
-		/*class CloseHandler
-		{
-			public:
-				virtual ~CloseHandler(void);
-				virtual void PageClosed(void *Source) = 0;
-		};*/
-
 		Notebook(void);
 
 		int Add(GtkWidget *Addee, const String &Title);
-		//int Add(Notebook::CloseHandler *Target, GtkWidget *Addee, const String &Title);
 		void SetPage(int Page);
 
 		void Rename(GtkWidget *Addee, const String &NewTitle);
 
 		int GetPage(void);
 		int Find(GtkWidget *Addee);
-	private:
-		//static void HandleClose(GtkWidget *Widget, std::pair<CloseHandler *, GtkWidget *> *Data);
 };
 
 class HiddenNotebook : public Widget
@@ -402,16 +394,16 @@ class Article : public Widget
 class Button : public Widget
 {
 	public:
-		Button(ActionHandler *Target, const String &Text, bool Small = false);
-		Button(ActionHandler *Target, const String &Text, DefaultIcons Icon, bool Small = false);
+		Button(const String &Text, bool Small = false);
+		Button(const String &Text, DefaultIcons Icon, bool Small = false);
 		~Button(void);
 
-		// Manipulation
+		void SetAction(ActionHandler const &Handler);
 		void SetText(const String &NewText);
 		void SetIcon(DefaultIcons Icon);
 
 	private:
-		ActionHandler *Handler;
+		ActionHandler Handler;
 
 		static void PressHandler(GtkWidget *Widget, Button *This);
 		gulong ConnectionID;
@@ -422,16 +414,10 @@ class Button : public Widget
 class ShortEntry : public Layout
 {
 	public:
-		class Handler
-		{
-			public:
-				virtual ~Handler(void);
-				virtual void OnEntry(ShortEntry *Source) = 0;
-		};
-
 		ShortEntry(Handler *Target, String const &Prompt, String const &InitialText);
 		~ShortEntry(void);
 
+		void SetInputHandler(InputHandler const &Handler);
 		void SetEditable(bool Editable);
 
 		void SetValue(const String &NewText);
@@ -439,9 +425,9 @@ class ShortEntry : public Layout
 
 	private:
 		GtkWidget *EntryData;
-		Handler *Target;
+		InputHandler Handler;
 
-		static void EntryHandler(GtkWidget *Data, ShortEntry *This);
+		static void EntryCallback(GtkWidget *Data, ShortEntry *This);
 		gulong ConnectionID;
 };
 
@@ -461,16 +447,10 @@ class LongEntry : public Widget
 class Slider : public Layout
 {
 	public:
-		class Handler
-		{
-			public:
-				virtual ~Handler(void);
-				virtual void OnSlide(Slider *Source) = 0;
-		};
-
-		Slider(Handler *Target, String const &Prompt, float Minimum, float Maximum, float InitialValue);
+		Slider(String const &Prompt, float Minimum, float Maximum, float InitialValue);
 		~Slider(void);
 		
+		void SetInputHandler(InputHandler const &Handler);
 		void SetPrompt(String const &NewPrompt);
 
 		void SetValue(const float &NewValue);
@@ -479,25 +459,27 @@ class Slider : public Layout
 	private:
 		GtkWidget *SliderData;
 		Label PromptLabel;
-		Handler *Target;
+		InputHandler Handler;
 
-		static void SlideHandler(GtkWidget *Widget, Slider *This);
+		static void SlideCallback(GtkWidget *Widget, Slider *This);
 		gulong ConnectionID;
 };
 
 class CheckButton : public Widget
 {
 	public:
-		CheckButton(ActionHandler *Target, const String &Text, bool StartState);
-		CheckButton(ActionHandler *Target, bool StartState);
+		CheckButton(const String &Text, bool StartState);
+		CheckButton(bool StartState);
 		~CheckButton(void);
+
+		void SetAction(ActionHandler const &Handler);
 
 		void SetPrompt(String const &NewPrompt);
 		void SetValue(bool NewValue);
 		bool GetValue(void);
 
 	private:
-		ActionHandler *Target;
+		ActionHandler Target;
 
 		static void PressHandler(GtkWidget *Widget, CheckButton *This);
 		gulong ConnectionID;
@@ -506,15 +488,10 @@ class CheckButton : public Widget
 class Wheel : public Layout
 {
 	public:
-		class Handler
-		{
-			public:
-				virtual ~Handler(void);
-				virtual void OnSpin(Wheel *Source) = 0;
-		};
-
-		Wheel(Handler *Target, String const &Prompt, float Min, float Max, float Initial, bool Float = false);
+		Wheel(String const &Prompt, float Min, float Max, float Initial, bool Float = false);
 		~Wheel(void);
+		
+		void SetInputHandler(InputHandler const &Handler);
 
 		int GetInt(void);
 		float GetFloat(void);
@@ -523,27 +500,22 @@ class Wheel : public Layout
 		void SetValue(float NewValue);
 	private:
 		GtkWidget *WheelData;
-		Handler *Target;
+		InputHandler Handler;
 
-		static void SpinHandler(GtkWidget *Widget, Wheel *This);
+		static void SpinCallback(GtkWidget *Widget, Wheel *This);
 		gulong ConnectionID;
 };
 
 class List : public Widget
 {
 	public:
-		class Handler
-		{
-			public:
-				virtual ~Handler(void);
-				virtual void OnSelect(List *Source) = 0;
-		};
-
-		List(Handler *Target, String const &Prompt, bool Multiline = false);
+		List(String const &Prompt, bool Multiline = false);
 		~List(void);
 
 		using Widget::Hide;
 		using Widget::Show;
+		
+		void SetInputHandler(InputHandler const &Handler);
 
 		bool Empty(void);
 		unsigned int Size(void);
@@ -563,9 +535,9 @@ class List : public Widget
 		int GetSelection(void);
 	private:
 		GtkWidget *ListData;
-		Handler *Target;
+		InputHandler Handler;
 
-		static void SelectHandler(GtkWidget *Widget, List *This);
+		static void SelectCallback(GtkWidget *Widget, List *This);
 		gulong ConnectionID;
 
 		bool Multiline;
@@ -575,7 +547,7 @@ class List : public Widget
 		GtkListStore *Store;
 };
 
-class MenuButton : public Button, public ActionHandler
+class MenuButton : public Button
 {
 	public:
 		MenuButton(const String &Label, DefaultIcons Icon);
@@ -596,77 +568,53 @@ class MenuButton : public Button, public ActionHandler
 class DirectorySelect : public Layout
 {
 	public:
-		DirectorySelect(ActionHandler *Handler, String const &Prompt, const String &InitialDirectory);
+		DirectorySelect(Handler, String const &Prompt, const String &InitialDirectory);
 		~DirectorySelect(void);
+
+		void SetAction(ActionHandler const &Handler);
 
 		String GetValue(void);
 
 	private:
 		GtkWidget *ButtonData;
-		ActionHandler *Handler;
+		ActionHandler Handler;
 
-		static void OpenHandler(GtkWidget *Widget, DirectorySelect *This);
+		static void OpenCallback(GtkWidget *Widget, DirectorySelect *This);
 		gulong ConnectionID;
 };
 
 class OpenSelect : public Layout
 {
 	public:
-		OpenSelect(ActionHandler *Handler, String const &Prompt, const String &InitialFile, const String &FilterName);
+		OpenSelect(String const &Prompt, const String &InitialFile, const String &FilterName);
 		~OpenSelect(void);
 
+		void SetAction(ActionHandler const &Handler);
 		void AddFilterPass(const String &Filter);
 
 		String GetValue(void);
 
 	private:
 		GtkWidget *ButtonData;
-		ActionHandler *Handler;
+		ActionHandler Handler;
 
-		static void OpenHandler(GtkWidget *Widget, OpenSelect *This);
+		static void OpenCallback(GtkWidget *Widget, OpenSelect *This);
 		gulong ConnectionID;
 
 		GtkFileFilter *SingleFilter;
 };
 
-/*class OpenSelect : public Widget
+class OutputSelect : public Layout
 {
 	public:
-		OpenSelect(ActionHandler *Handler, String const &Prompt, const String &InitialDirectory);
-		OpenSelect(ActionHandler *Handler, String const &Prompt, const String &InitialFile, const String &FilterName);
-		~OpenSelect(void);
-
-		void AddFilterPass(const String &Filter);
+		OutputSelect(String const &Prompt, String const &InitialDirectory);
+		
+		void SetAction(ActionHandler const &Handler);
 
 		String GetValue(void);
 
 	private:
-		ActionHandler *Handler;
-
-		static void OpenHandler(GtkWidget *Widget, OpenSelect *This);
-		gulong ConnectionID;
-
-		GtkFileFilter *SingleFilter;
-};*/
-
-class OutputSelect : public Layout, public ActionHandler
-{
-	public:
-		class Handler
-		{
-			public:
-				virtual ~Handler(void);
-				virtual void OnSelect(OutputSelect *Source) = 0;
-		};
-
-		OutputSelect(Handler *Target, String const &Prompt, String const &InitialDirectory);
-
-		String GetValue(void);
-
-		void Act(void const *Source);
-
-	private:
-		Handler *Target;
+		ActionHandler Handler;
 
 		ShortEntry Location;
 		Button SelectButton;
