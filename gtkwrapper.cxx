@@ -22,6 +22,7 @@ const char *ConvertStock(DefaultIcons From)
 		case diOpen: return GTK_STOCK_OPEN;
 		case diSave: return GTK_STOCK_SAVE;
 		case diRefresh: return GTK_STOCK_REFRESH;
+		case diClear: return GTK_STOCK_CLEAR;
 		case diFirst: return GTK_STOCK_GOTO_FIRST;
 		case diLast: return GTK_STOCK_GOTO_LAST;
 		case diTop: return GTK_STOCK_GOTO_TOP;
@@ -218,10 +219,9 @@ void ToolButton::ClickHandler(GtkToolItem *ToolWidget, ToolButton *This)
 // Window type
 Window::Handler::~Handler(void) {}
 
-Window::Window(const String &Title, Handler *Target) : Widget(gtk_window_new(GTK_WINDOW_TOPLEVEL)),
-	DeleteConnectionID(g_signal_connect(G_OBJECT(Data), "delete_event", G_CALLBACK(DeleteHandler), this)),
-	DestroyConnectionID(g_signal_connect(G_OBJECT(Data), "destroy", G_CALLBACK(DestroyHandler), this)),
-	Target(Target)
+Window::Window(const String &Title) : Widget(gtk_window_new(GTK_WINDOW_TOPLEVEL)),
+	AttemptCloseConnectionID(g_signal_connect(G_OBJECT(Data), "delete_event", G_CALLBACK(AttemptCloseCallback), this)),
+	CloseConnectionID(g_signal_connect(G_OBJECT(Data), "destroy", G_CALLBACK(CloseCallback), this))
 {
 	gtk_window_set_title(GTK_WINDOW(Data), Title.c_str());
 	gtk_container_set_reallocate_redraws(GTK_CONTAINER(Data), true);
@@ -230,8 +230,8 @@ Window::Window(const String &Title, Handler *Target) : Widget(gtk_window_new(GTK
 
 Window::~Window(void)
 {
-	g_signal_handler_disconnect(G_OBJECT(Data), DeleteConnectionID);
-	g_signal_handler_disconnect(G_OBJECT(Data), DestroyConnectionID);
+	g_signal_handler_disconnect(G_OBJECT(Data), AttemptCloseConnectionID);
+	g_signal_handler_disconnect(G_OBJECT(Data), CloseConnectionID);
 }
 		
 void Window::SetAttemptCloseHandler(std::function<bool(void)> const &Handler)
@@ -245,7 +245,14 @@ void Window::SetCloseHandler(std::function<void(void)> const &Handler)
 	assert(!CloseHandler);
 	CloseHandler = Handler;
 }
-
+		
+void Window::SetResizeHandler(std::function<void(void)> const &Handler)
+{
+	assert(!ResizeHandler);
+	ResizeHandler = Handler;
+	g_signal_connect(G_OBJECT(Window), "configure-event", G_CALLBACK(ResizeCallback), this);
+}
+		
 void Window::SetIcon(const String &Filename)
 	{ gtk_window_set_icon_from_file(GTK_WINDOW(Data), Filename.c_str(), NULL); }
 
@@ -265,16 +272,22 @@ void Window::Set(GtkWidget *Addee)
 	{ gtk_container_add(GTK_CONTAINER(Data), Addee); gtk_widget_show(Addee); }
 
 // Dialogs
-gboolean Window::DeleteHandler(GtkWidget *Source, GdkEvent *Event, Window *This)
+gboolean Window::AttemptCloseHandler(GtkWidget *Source, GdkEvent *Event, Window *This)
 {
 	if (!This->AttemptCloseHandler) return false;
 	return !This->AttemptCloseHandler();
 }
 
-void Window::DestroyHandler(GtkWidget *Source, Window *This)
+void Window::CloseHandler(GtkWidget *Source, Window *This)
 {
 	if (!This->CloseHandler) return false;
 	return !This->CloseHandler();
+}
+		
+gboolean Window::ResizeCallback(GtkWidget *, GdkEventConfigure *, MainWindow *This)
+{
+	This->ResizeCallback();
+	return FALSE;
 }
 
 // Dialog window, doesn't appear til' Run is called

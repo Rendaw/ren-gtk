@@ -15,7 +15,7 @@ enum DefaultIcons
 	diNone,
 	diUp, diDown,
 	diAdd, diRemove, diDelete,
-	diNew, diOpen, diSave, diRefresh,
+	diNew, diOpen, diSave, diRefresh, diClear,
 	diFirst, diLast, diTop, diBottom,
 	diPlay, diPause, diRewind, diStop,
 	diInfo, diProperties, diConfigure, diOkay, diCancel, diClose, diQuit
@@ -136,19 +136,12 @@ class ToolButton : public Widget
 class Window : public Widget
 {
 	public:
-		class Handler
-		{
-			public:
-				virtual ~Handler(void);
-				virtual bool ConfirmClose(Window *Source) = 0;
-				virtual void OnClose(Window *Source) = 0;
-		};
-
-		Window(const String &Title, Handler *Target);
+		Window(const String &Title);
 		~Window(void);
 
 		void SetAttemptCloseHandler(std::function<bool(void)> const &Handler); // return true to allow close
 		void SetCloseHandler(std::function<void(void)> const &Handler);
+		void SetResizeHandler(std::function<void(void)> const &Handler);
 		void SetIcon(const String &Filename);
 		void SetTitle(const String &NewTitle);
 		void SetFullscreen(bool On);
@@ -157,14 +150,17 @@ class Window : public Widget
 		void Set(GtkWidget *Addee);
 
 	private:
-		static gboolean DeleteHandler(GtkWidget *Source, GdkEvent *Event, Window *This);
-		gulong DeleteConnectionID;
+		static gboolean AttemptCloseCallback(GtkWidget *Source, GdkEvent *Event, Window *This);
+		gulong AttemptCloseConnectionID;
 
-		static void DestroyHandler(GtkWidget *Source, Window *This);
-		gulong DestroyConnectionID;
+		static void CloseCallback(GtkWidget *Source, Window *This);
+		gulong CloseConnectionID;
+
+		static gboolean ResizeCallback(GtkWidget *, GdkEventConfigure *, MainWindow *This);
 
 		std::function<bool(void)> AttemptCloseHandler;
 		std::function<void(void)> CloseHandler;
+		std::function<void(void)> ResizeHandler;
 };
 
 class Dialog : public Widget
