@@ -1,7 +1,7 @@
 #include "gtkwrapper.h"
 
-#include <ren-general/region.h>
-#include <ren-general/range.h>
+#include "../ren-general/region.h"
+#include "../ren-general/range.h"
 
 #include <cassert>
 #include <cstdlib>
@@ -12,7 +12,7 @@ const char *ConvertStock(DefaultIcons From)
 {
 	switch (From)
 	{
-		case diNone: return NULL; // Who knows?
+		case diNone: return nullptr; // Who knows?
 		case diUp: return GTK_STOCK_GO_UP;
 		case diDown: return GTK_STOCK_GO_DOWN;
 		case diAdd: return GTK_STOCK_ADD;
@@ -51,9 +51,9 @@ namespace GTK
 		GtkWidget *Message = gtk_message_dialog_new(
 			GTK_WINDOW(gtk_widget_get_toplevel(Anchor)),
 			GTK_DIALOG_MODAL, GTK_MESSAGE_ERROR, GTK_BUTTONS_NONE,
-			Section.c_str());
+			"%s", Section.c_str());
 		gtk_dialog_add_button(GTK_DIALOG(Message), GTK_STOCK_QUIT, 0);
-		gtk_message_dialog_format_secondary_text(GTK_MESSAGE_DIALOG(Message), Description.c_str());
+		gtk_message_dialog_format_secondary_text(GTK_MESSAGE_DIALOG(Message), "%s", Description.c_str());
 		gtk_dialog_run(GTK_DIALOG(Message));
 		gtk_main_quit();
 	}
@@ -65,8 +65,8 @@ namespace GTK
 		GtkWidget *Message = gtk_message_dialog_new(
 			GTK_WINDOW(gtk_widget_get_toplevel(Anchor)),
 			GTK_DIALOG_MODAL, GTK_MESSAGE_WARNING, GTK_BUTTONS_CLOSE,
-			Section.c_str());
-		gtk_message_dialog_format_secondary_text(GTK_MESSAGE_DIALOG(Message), Description.c_str());
+			"%s", Section.c_str());
+		gtk_message_dialog_format_secondary_text(GTK_MESSAGE_DIALOG(Message), "%s", Description.c_str());
 		gtk_dialog_run(GTK_DIALOG(Message));
 		gtk_widget_destroy(Message);
 	}
@@ -76,8 +76,8 @@ namespace GTK
 		GtkWidget *Message = gtk_message_dialog_new(
 			GTK_WINDOW(gtk_widget_get_toplevel(Anchor)),
 			GTK_DIALOG_MODAL, GTK_MESSAGE_QUESTION, GTK_BUTTONS_YES_NO,
-			Section.c_str());
-		gtk_message_dialog_format_secondary_text(GTK_MESSAGE_DIALOG(Message), Description.c_str());
+			"%s", Section.c_str());
+		gtk_message_dialog_format_secondary_text(GTK_MESSAGE_DIALOG(Message), "%s", Description.c_str());
 		int Result = gtk_dialog_run(GTK_DIALOG(Message));
 		gtk_widget_destroy(Message);
 
@@ -102,7 +102,7 @@ TimedEvent::TimedEvent(unsigned int Milliseconds) : Period(Milliseconds), TimerI
 TimedEvent::~TimedEvent(void)
 	{ assert(Handler); StopTimer(); }
 		
-TimedEvent TimedEvent::SetAction(ActionHandler const &Handler)
+void TimedEvent::SetAction(ActionHandler const &Handler)
 {
 	assert(!this->Handler);
 	this->Handler = Handler;
@@ -133,17 +133,16 @@ gboolean TimedEvent::TimeHandler(TimedEvent *This)
 
 ///////////////////////////////////////////////////////////
 // Widget extensions
-KeyboardWidget::Handler::~Handler(void) {}
-KeyboardWidget::KeyboardWidget(GtkWidget *Data, Handler *Target) :
-	Data(Data), Target(Target),
-	ConnectionID(g_signal_connect(G_OBJECT(Data), "key-press-event", G_CALLBACK(KeyHandler), this))
+KeyboardWidget::KeyboardWidget(GtkWidget *Data) :
+	Data(Data),
+	ConnectionID(g_signal_connect(G_OBJECT(Data), "key-press-event", G_CALLBACK(KeyCallback), this)),
+	Destroy(false)
 {
-	assert(Target != NULL);
 	gtk_widget_add_events(Data, GDK_KEY_PRESS);
 }
 
 KeyboardWidget::~KeyboardWidget(void)
-	{ assert(this->Handler); g_signal_handler_disconnect(G_OBJECT(Data), ConnectionID); }
+	{ assert(this->Handler); if (Destroy) g_signal_handler_disconnect(G_OBJECT(Data), ConnectionID); }
 		
 void KeyboardWidget::SetHandler(KeyHandler const &Handler)
 {
@@ -151,7 +150,9 @@ void KeyboardWidget::SetHandler(KeyHandler const &Handler)
 	this->Handler = Handler;
 }
 
-gboolean KeyboardWidget::KeyHandler(GtkWidget *Widget, GdkEventKey *Event, KeyboardWidget *This)
+void KeyboardWidget::DestroyWhenDeleted(void) { Destroy = true; }
+
+gboolean KeyboardWidget::KeyCallback(GtkWidget *, GdkEventKey *Event, KeyboardWidget *This)
 { 
 	assert(This->Handler);
 	if (!This->Handler) return false;
@@ -159,26 +160,26 @@ gboolean KeyboardWidget::KeyHandler(GtkWidget *Widget, GdkEventKey *Event, Keybo
 }
 
 //
-MenuItem::MenuItem(ActionHandler *Handler, String const &Text) : Widget(gtk_menu_item_new_with_label(Text.c_str())),
-	Handler(Handler), ConnectionID(g_signal_connect(G_OBJECT(Data), "activate", G_CALLBACK(ClickHandler), this))
+MenuItem::MenuItem(String const &Text) : Widget(gtk_menu_item_new_with_label(Text.c_str())),
+	ConnectionID(g_signal_connect(G_OBJECT(Data), "activate", G_CALLBACK(ClickHandler), this))
 	{}
 
-MenuItem::MenuItem(ActionHandler *Handler, String const &Text, DefaultIcons const Icon) : Widget(gtk_image_menu_item_new_with_label(Text.c_str())),
-	Handler(Handler), ConnectionID(g_signal_connect(G_OBJECT(Data), "activate", G_CALLBACK(ClickHandler), this))
+MenuItem::MenuItem(String const &Text, DefaultIcons const Icon) : Widget(gtk_image_menu_item_new_with_label(Text.c_str())),
+	ConnectionID(g_signal_connect(G_OBJECT(Data), "activate", G_CALLBACK(ClickHandler), this))
 {
 	GtkWidget *IconWidget = gtk_image_new_from_stock(ConvertStock(Icon), GTK_ICON_SIZE_SMALL_TOOLBAR);
 	gtk_image_menu_item_set_image(GTK_IMAGE_MENU_ITEM(Data), IconWidget);
 }
 
-MenuItem::MenuItem(ActionHandler *Handler, String const &Text, String const &IconFilename) : Widget(gtk_image_menu_item_new_with_label(Text.c_str())),
-	Handler(Handler), ConnectionID(g_signal_connect(G_OBJECT(Data), "activate", G_CALLBACK(ClickHandler), this))
+MenuItem::MenuItem(String const &Text, String const &IconFilename) : Widget(gtk_image_menu_item_new_with_label(Text.c_str())),
+	ConnectionID(g_signal_connect(G_OBJECT(Data), "activate", G_CALLBACK(ClickHandler), this))
 {
 	GtkWidget *IconWidget = gtk_image_new_from_file(IconFilename.c_str());
 	gtk_image_menu_item_set_image(GTK_IMAGE_MENU_ITEM(Data), IconWidget);
 }
 
 MenuItem::~MenuItem(void)
-	{ g_signal_handler_disconnect(G_OBJECT(Data), ConnectionID); }
+	{ if (Destroy) g_signal_handler_disconnect(G_OBJECT(Data), ConnectionID); }
 		
 void MenuItem::SetAction(ActionHandler const &Handler)
 {
@@ -186,22 +187,22 @@ void MenuItem::SetAction(ActionHandler const &Handler)
 	this->Handler = Handler;
 }
 
-void MenuItem::ClickHandler(GtkMenuItem *MenuWidget, MenuItem *This)
-	{ if (This->Handler != NULL) This->Handler(); }
+void MenuItem::ClickHandler(GtkMenuItem *, MenuItem *This)
+	{ if (This->Handler != nullptr) This->Handler(); }
 
 //
-ToolButton::ToolButton(ActionHandler *Handler, String const &Text) :
-	Widget(GTK_WIDGET(gtk_tool_button_new(NULL, Text.c_str()))),
-	Handler(Handler), ConnectionID(g_signal_connect(G_OBJECT(Data), "clicked", G_CALLBACK(ClickHandler), this))
+ToolButton::ToolButton(String const &Text) :
+	Widget(GTK_WIDGET(gtk_tool_button_new(nullptr, Text.c_str()))),
+	ConnectionID(g_signal_connect(G_OBJECT(Data), "clicked", G_CALLBACK(ClickHandler), this))
 	{}
 
-ToolButton::ToolButton(ActionHandler *Handler, String const &Text, DefaultIcons const Icon) :
+ToolButton::ToolButton(String const &Text, DefaultIcons const Icon) :
 	Widget(GTK_WIDGET(gtk_tool_button_new_from_stock(ConvertStock(Icon)))),
-	Handler(Handler), ConnectionID(g_signal_connect(G_OBJECT(Data), "clicked", G_CALLBACK(ClickHandler), this))
+	ConnectionID(g_signal_connect(G_OBJECT(Data), "clicked", G_CALLBACK(ClickHandler), this))
 	{ if (!Text.empty()) gtk_tool_button_set_label(GTK_TOOL_BUTTON(Data), Text.c_str()); }
 
 ToolButton::~ToolButton(void)
-	{ g_signal_handler_disconnect(G_OBJECT(Data), ConnectionID); }
+	{ if (Destroy) g_signal_handler_disconnect(G_OBJECT(Data), ConnectionID); }
 
 void ToolButton::SetAction(ActionHandler const &Handler)
 {
@@ -212,26 +213,24 @@ void ToolButton::SetAction(ActionHandler const &Handler)
 void ToolButton::SetPrompt(String const &NewPrompt)
 	{ gtk_tool_button_set_label(GTK_TOOL_BUTTON(Data), NewPrompt.c_str()); }
 
-void ToolButton::ClickHandler(GtkToolItem *ToolWidget, ToolButton *This)
-	{ if (This->Handler != NULL) This->Handler(); }
+void ToolButton::ClickHandler(GtkToolItem *, ToolButton *This)
+	{ if (This->Handler != nullptr) This->Handler(); }
 
 ///////////////////////////////////////////////////////////
 // Window type
-Window::Handler::~Handler(void) {}
-
-Window::Window(const String &Title) : Widget(gtk_window_new(GTK_WINDOW_TOPLEVEL)),
+Window::Window(const String &Title, unsigned int const &EdgePadding) : Widget(gtk_window_new(GTK_WINDOW_TOPLEVEL)),
 	AttemptCloseConnectionID(g_signal_connect(G_OBJECT(Data), "delete_event", G_CALLBACK(AttemptCloseCallback), this)),
 	CloseConnectionID(g_signal_connect(G_OBJECT(Data), "destroy", G_CALLBACK(CloseCallback), this))
 {
 	gtk_window_set_title(GTK_WINDOW(Data), Title.c_str());
 	gtk_container_set_reallocate_redraws(GTK_CONTAINER(Data), true);
-	gtk_container_set_border_width(GTK_CONTAINER(Data), 6);
+	gtk_container_set_border_width(GTK_CONTAINER(Data), EdgePadding);
 }
 
 Window::~Window(void)
 {
-	g_signal_handler_disconnect(G_OBJECT(Data), AttemptCloseConnectionID);
-	g_signal_handler_disconnect(G_OBJECT(Data), CloseConnectionID);
+	if (Destroy) g_signal_handler_disconnect(G_OBJECT(Data), AttemptCloseConnectionID);
+	if (Destroy) g_signal_handler_disconnect(G_OBJECT(Data), CloseConnectionID);
 }
 		
 void Window::SetAttemptCloseHandler(std::function<bool(void)> const &Handler)
@@ -250,11 +249,11 @@ void Window::SetResizeHandler(std::function<void(void)> const &Handler)
 {
 	assert(!ResizeHandler);
 	ResizeHandler = Handler;
-	g_signal_connect(G_OBJECT(Window), "configure-event", G_CALLBACK(ResizeCallback), this);
+	g_signal_connect(G_OBJECT(Data), "configure-event", G_CALLBACK(ResizeCallback), this);
 }
-		
+
 void Window::SetIcon(const String &Filename)
-	{ gtk_window_set_icon_from_file(GTK_WINDOW(Data), Filename.c_str(), NULL); }
+	{ gtk_window_set_icon_from_file(GTK_WINDOW(Data), Filename.c_str(), nullptr); }
 
 void Window::SetTitle(const String &NewTitle)
 	{ gtk_window_set_title(GTK_WINDOW(Data), NewTitle.c_str()); }
@@ -270,25 +269,15 @@ void Window::SetDefaultSize(const FlatVector &Size)
 
 void Window::Set(GtkWidget *Addee)
 	{ gtk_container_add(GTK_CONTAINER(Data), Addee); gtk_widget_show(Addee); }
-
-// Dialogs
-gboolean Window::AttemptCloseHandler(GtkWidget *Source, GdkEvent *Event, Window *This)
-{
-	if (!This->AttemptCloseHandler) return false;
-	return !This->AttemptCloseHandler();
-}
-
-void Window::CloseHandler(GtkWidget *Source, Window *This)
-{
-	if (!This->CloseHandler) return false;
-	return !This->CloseHandler();
-}
 		
-gboolean Window::ResizeCallback(GtkWidget *, GdkEventConfigure *, MainWindow *This)
-{
-	This->ResizeCallback();
-	return FALSE;
-}
+gboolean Window::AttemptCloseCallback(GtkWidget *, GdkEvent *, Window *This)
+	{ if (This->AttemptCloseHandler) return !This->AttemptCloseHandler(); return false; }
+
+void Window::CloseCallback(GtkWidget *, Window *This) 
+	{ if (This->CloseHandler) This->CloseHandler(); }
+
+gboolean Window::ResizeCallback(GtkWidget *, GdkEventConfigure *, Window *This)
+	{ assert(This->ResizeHandler); This->ResizeHandler(); return FALSE; }
 
 // Dialog window, doesn't appear til' Run is called
 Dialog::Dialog(GtkWidget *Parent, const String &Title, FlatVector const &DefaultSize) : Widget(gtk_dialog_new())
@@ -344,7 +333,7 @@ PopupMenu::PopupMenu() : MenuData(gtk_menu_new())
 PopupMenu::~PopupMenu(void)
 	{ gtk_widget_destroy(MenuData); }
 		
-void PopupMenu::SetPositionHandler(MenuPositionHandler const &MenuPositionHandler)
+void PopupMenu::SetPositionHandler(MenuPositionHandler const &Handler)
 {
 	assert(!this->Handler);
 	this->Handler = Handler;
@@ -373,9 +362,9 @@ void PopupMenu::AddSeparator(void)
 void PopupMenu::Activate(void)
 {
 	if (Handler) gtk_menu_popup(GTK_MENU(MenuData),
-		NULL, NULL, Positioner, PositionSource, 0, gtk_get_current_event_time());
+		nullptr, nullptr, (void (*)(GtkMenu *, gint *, gint *, gboolean *, void *))PositionCallback, this, 0, gtk_get_current_event_time());
 	else gtk_menu_popup(GTK_MENU(MenuData),
-		NULL, NULL, NULL, this, 0, gtk_get_current_event_time());
+		nullptr, nullptr, nullptr, this, 0, gtk_get_current_event_time());
 }
 		
 void PopupMenu::PositionCallback(GtkMenu *, gint *X, gint *Y, gboolean *ForceVisible, PopupMenu *This)
@@ -393,20 +382,20 @@ Layout::Layout(bool Horizontal, int EdgePadding, int ItemPadding) :
 
 void Layout::Add(GtkWidget *Widget)
 {
-	assert(Widget != NULL);
+	assert(Widget != nullptr);
 	gtk_box_pack_start(GTK_BOX(Data), Widget, false, true, 0);
 	gtk_widget_show(Widget);
 }
 
 void Layout::AddFill(GtkWidget *Widget)
 {
-	assert(Widget != NULL);
+	assert(Widget != nullptr);
 	gtk_box_pack_start(GTK_BOX(Data), Widget, true, true, 0);
 	gtk_widget_show(Widget);
 }
 
 void Layout::AddSpacer(void)
-	{ Add(Horizontal ? gtk_hseparator_new() : gtk_vseparator_new()); }
+	{ Add(Horizontal ? gtk_vseparator_new() : gtk_hseparator_new()); }
 
 void Layout::AddSpace(void)
 	{ AddFill(Horizontal ? gtk_hbox_new(false, 0) : gtk_vbox_new(false, 0)); }
@@ -447,7 +436,7 @@ void ColorLayout::AddSpace(void)
 	{ Inner.AddSpace(); }
 
 // LayoutBorder wrapper
-LayoutBorder::LayoutBorder(void) : Widget(gtk_frame_new(NULL))
+LayoutBorder::LayoutBorder(void) : Widget(gtk_frame_new(nullptr))
 	{ gtk_frame_set_shadow_type(GTK_FRAME(Data), GTK_SHADOW_IN); }
 
 LayoutBorder::LayoutBorder(const String &Title) : Widget(gtk_frame_new(Title.c_str()))
@@ -506,7 +495,7 @@ int Notebook::Find(GtkWidget *Addee)
 
 /*void Notebook::HandleClose(GtkWidget *Widget, std::pair<Notebook::CloseHandler *, GtkWidget *> *Data)
 {
-	if (Data->first != NULL)
+	if (Data->first != nullptr)
 		Data->first->PageClosed(Data->second);
 	gtk_widget_destroy(Data->second);
 	delete Data;
@@ -518,7 +507,7 @@ HiddenNotebook::HiddenNotebook(void) : Widget(gtk_notebook_new())
 
 int HiddenNotebook::Add(GtkWidget *Addee)
 {
-	int Page = gtk_notebook_insert_page(GTK_NOTEBOOK(Data), Addee, NULL, -1);
+	int Page = gtk_notebook_insert_page(GTK_NOTEBOOK(Data), Addee, nullptr, -1);
 	gtk_widget_show(Addee);
 	return Page;
 }
@@ -530,10 +519,10 @@ int HiddenNotebook::GetPage(void)
 	{ return gtk_notebook_get_current_page(GTK_NOTEBOOK(Data)); }
 
 // A scroller container
-Scroller::Scroller(void) : Widget(gtk_scrolled_window_new(NULL, NULL))
+Scroller::Scroller(void) : Widget(gtk_scrolled_window_new(nullptr, nullptr))
 {
 	gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(Data), GTK_POLICY_NEVER, GTK_POLICY_ALWAYS);
-	gtk_scrolled_window_set_placement(GTK_SCROLLED_WINDOW(Data), GTK_CORNER_TOP_RIGHT);
+	//gtk_scrolled_window_set_placement(GTK_SCROLLED_WINDOW(Data), GTK_CORNER_TOP_RIGHT);
 }
 
 void Scroller::Set(GtkWidget *Settee)
@@ -568,19 +557,19 @@ void CanvasScroller::Set(GtkWidget *Settee)
 	g_signal_connect(G_OBJECT(HorizontalAdjustment), "changed", G_CALLBACK(InitialStateChangeHandler), this);
 	HorizontalScrollHandler = g_signal_handler_find(HorizontalAdjustment, G_SIGNAL_MATCH_DATA,
 		g_signal_lookup("value-changed", G_TYPE_FROM_INSTANCE(HorizontalAdjustment)),
-		0, NULL, NULL, GTK_VIEWPORT(gtk_bin_get_child(GTK_BIN(Data))));
+		0, nullptr, nullptr, GTK_VIEWPORT(gtk_bin_get_child(GTK_BIN(Data))));
 	
 	VerticalAdjustment = gtk_scrolled_window_get_vadjustment(GTK_SCROLLED_WINDOW(Data));
 	VerticalScrollHandler = g_signal_handler_find(VerticalAdjustment, G_SIGNAL_MATCH_DATA,
 		g_signal_lookup("value-changed", G_TYPE_FROM_INSTANCE(VerticalAdjustment)),
-		0, NULL, NULL, GTK_VIEWPORT(gtk_bin_get_child(GTK_BIN(Data))));
+		0, nullptr, nullptr, GTK_VIEWPORT(gtk_bin_get_child(GTK_BIN(Data))));
 	
 	gtk_widget_show(Settee);
 }
 
 void CanvasScroller::ShowRange(FlatVector Start, FlatVector End)
 {
-	assert(VerticalAdjustment != NULL);
+	assert(VerticalAdjustment != nullptr);
 	// May jerk because 
 	gtk_adjustment_clamp_page(VerticalAdjustment, Start[1], End[1]);
 	gtk_adjustment_clamp_page(HorizontalAdjustment, Start[0], End[0]);
@@ -590,7 +579,7 @@ void CanvasScroller::GoTo(FlatVector Position)
 {
 	if (InitialAdjustmentCompleted)
 	{
-		assert(VerticalAdjustment != NULL);
+		assert(VerticalAdjustment != nullptr);
 		
 		Position -= FlatVector(gtk_adjustment_get_page_size(HorizontalAdjustment),
 			gtk_adjustment_get_page_size(VerticalAdjustment)) * 0.5f;
@@ -605,7 +594,7 @@ void CanvasScroller::GoToPercent(FlatVector Percent)
 {
 	if (InitialAdjustmentCompleted)
 	{
-		assert(VerticalAdjustment != NULL);
+		assert(VerticalAdjustment != nullptr);
 		
 		Percent *= FlatVector(
 			gtk_adjustment_get_upper(HorizontalAdjustment) - gtk_adjustment_get_lower(HorizontalAdjustment),
@@ -643,7 +632,7 @@ void CanvasScroller::GoToPercent(FlatVector Percent)
 void CanvasScroller::Nudge(const FlatVector &Offset)
 {
 	// NOTE manually clips value becase gtk is broken
-	assert(VerticalAdjustment != NULL);
+	assert(VerticalAdjustment != nullptr);
 	SetAdjustments(
 		RangeF(0, gtk_adjustment_get_upper(HorizontalAdjustment) - gtk_adjustment_get_page_size(HorizontalAdjustment)).Constrain(
 			gtk_adjustment_get_value(HorizontalAdjustment) + Offset[0]),
@@ -653,7 +642,7 @@ void CanvasScroller::Nudge(const FlatVector &Offset)
 
 void CanvasScroller::SetAdjustments(int NewX, int NewY)
 {
-	assert(VerticalAdjustment != NULL);
+	assert(VerticalAdjustment != nullptr);
 	int const
 		OldX = gtk_adjustment_get_value(HorizontalAdjustment), 
 		OldY = gtk_adjustment_get_value(VerticalAdjustment);
@@ -681,7 +670,7 @@ void CanvasScroller::DoInitialAdjustment(void)
 	InitialAdjustmentFunction = decltype(InitialAdjustmentFunction)();
 }
 
-void CanvasScroller::InitialStateChangeHandler(void *Unused, CanvasScroller *This)
+void CanvasScroller::InitialStateChangeHandler(void *, CanvasScroller *This)
 	{ This->DoInitialAdjustment(); }
 
 
@@ -689,7 +678,7 @@ void CanvasScroller::InitialStateChangeHandler(void *Unused, CanvasScroller *Thi
 // Label wrapper
 
 // Title label
-Title::Title(const String &Text) : Widget(gtk_label_new(NULL))
+Title::Title(const String &Text) : Widget(gtk_label_new(nullptr))
 {
 	char *MarkupString = g_markup_printf_escaped("<span size=\"large\" weight=\"bold\">%s</span>", Text.c_str());
 	gtk_label_set_markup(GTK_LABEL(Data), MarkupString);
@@ -783,7 +772,7 @@ Button::Button(const String &Text, DefaultIcons Icon, bool Small) :
 	ConnectionID(g_signal_connect(G_OBJECT(Data), "clicked", G_CALLBACK(PressHandler), this)),
 	LastIcon(diNone)
 {
-	GtkWidget *IconWidget = NULL;
+	GtkWidget *IconWidget = nullptr;
 	if (Small) 
 	{
 		gtk_button_set_relief(GTK_BUTTON(Data), GTK_RELIEF_NONE);
@@ -794,7 +783,7 @@ Button::Button(const String &Text, DefaultIcons Icon, bool Small) :
 }
 
 Button::~Button(void)
-	{ g_signal_handler_disconnect(G_OBJECT(Data), ConnectionID); }
+	{ if (Destroy) g_signal_handler_disconnect(G_OBJECT(Data), ConnectionID); }
 		
 void Button::SetAction(ActionHandler const &Handler)
 {
@@ -813,12 +802,10 @@ void Button::SetIcon(DefaultIcons Icon)
 	LastIcon = Icon;
 }
 
-void Button::PressHandler(GtkWidget *Widget, Button *This)
+void Button::PressHandler(GtkWidget *, Button *This)
 	{ if (This->Handler) This->Handler(); }
 
 // Short entry (one line text box) type
-ShortEntry::Handler::~Handler(void) {}
-
 ShortEntry::ShortEntry(String const &Prompt, String const &InitialText) : Layout(true),
 	EntryData(gtk_entry_new()), ConnectionID(0)
 {
@@ -832,7 +819,7 @@ ShortEntry::ShortEntry(String const &Prompt, String const &InitialText) : Layout
 }
 
 ShortEntry::~ShortEntry(void)
-	{ g_signal_handler_disconnect(G_OBJECT(EntryData), ConnectionID); }
+	{ if (Destroy) g_signal_handler_disconnect(G_OBJECT(EntryData), ConnectionID); }
 		
 void ShortEntry::SetInputHandler(InputHandler const &Handler)
 {
@@ -849,12 +836,12 @@ void ShortEntry::SetValue(const String &NewText)
 String ShortEntry::GetValue(void) const
 	{ return gtk_entry_get_text(GTK_ENTRY(EntryData)); }
 
-void ShortEntry::EntryHandler(GtkWidget *Data, ShortEntry *This)
+void ShortEntry::EntryCallback(GtkWidget *, ShortEntry *This)
 	{ if (This->Handler) This->Handler(); }
 
 // Long... ?
 LongEntry::LongEntry(String const &InitialData) : 
-	Widget(gtk_text_view_new()), Buffer(gtk_text_buffer_new(NULL))
+	Widget(gtk_text_view_new()), Buffer(gtk_text_buffer_new(nullptr))
 {
 	gtk_text_buffer_set_text(Buffer, InitialData.c_str(), InitialData.size());
 	gtk_text_view_set_buffer(GTK_TEXT_VIEW(Data), Buffer);
@@ -875,54 +862,83 @@ String LongEntry::GetText(void) const
 }
 
 // Slida
-Slider::Slider(String const &Prompt, float Minimum, float Maximum, float InitialValue) : Layout(true),
-	SliderData(gtk_hscale_new_with_range(Minimum, Maximum, (Maximum - Minimum) / 123.79f)),
-	PromptLabel(Prompt),
-	ConnectionID(g_signal_connect(G_OBJECT(SliderData), "value-changed", G_CALLBACK(SlideCallback), this))
-{ 
+extern const float SliderFactor = 4, InverseSliderFactor = 1.0f / SliderFactor;
+Slider::Slider(const String &Prompt, const RangeF &ValueRange, float Initial) : Layout(true),
+	ValueRange(ValueRange),
+	SliderData(gtk_hscale_new_with_range(0, 1, 0.01)), EntryData(gtk_entry_new()),
+	PromptLabel(Prompt)
+{
 	Add(PromptLabel);
-	gtk_widget_set_size_request(SliderData, 150, -1);
-	AddFill(SliderData);
+
+	gtk_entry_set_width_chars(GTK_ENTRY(EntryData), 6);
+	Add(EntryData);
 	
-	g_signal_handler_block(G_OBJECT(SliderData), ConnectionID);
-	gtk_range_set_value(GTK_RANGE(SliderData), InitialValue); 
-	g_signal_handler_unblock(G_OBJECT(SliderData), ConnectionID);
+	gtk_scale_set_draw_value(GTK_SCALE(SliderData), false);
+	gtk_widget_set_size_request(SliderData, 200, 0);
+	SetValue(ValueRange.Constrain(Initial));
+	AddFill(SliderData);
+
+	SetValue(Initial);
+	HandleChangeSliderPosition(nullptr, this);
+
+	// Connect the slide notification last.  We could do it earlier, but then in most cases
+	// the text would be updated twice.  Not beautiful!  Not gorgeous!
+	SliderHandlerID = g_signal_connect(G_OBJECT(SliderData), "value-changed", G_CALLBACK(HandleChangeSliderPosition), this);
+
+	// For the backward editing path
+	EntryHandlerID = g_signal_connect(G_OBJECT(EntryData), "changed", G_CALLBACK(HandleChangeEntryText), this);
 }
 
 Slider::~Slider(void)
-	{ g_signal_handler_disconnect(G_OBJECT(SliderData), ConnectionID); }
+{ 
+	if (Destroy) g_signal_handler_disconnect(G_OBJECT(SliderData), SliderHandlerID); 
+	if (Destroy) g_signal_handler_disconnect(G_OBJECT(EntryData), EntryHandlerID); 
+}
 
 void Slider::SetInputHandler(InputHandler const &Handler)
 {
 	assert(!this->Handler);
 	this->Handler = Handler;
 }
-	
+
 void Slider::SetPrompt(String const &NewPrompt)
 	{ PromptLabel.SetText(NewPrompt); }
 
-void Slider::SetValue(const float &NewValue)
-	{ gtk_range_set_value(GTK_RANGE(SliderData), NewValue); }
-
 float Slider::GetValue(void)
-	{ return gtk_range_get_value(GTK_RANGE(SliderData)); }
+	{ return ValueRange.AtPercent(powf(gtk_range_get_value(GTK_RANGE(SliderData)), SliderFactor)); }
 
-void Slider::SlideCallback(GtkWidget *Widget, Slider *This)
-	{ if (This->Handler) This->Handler(); }
+void Slider::SetValue(float NewValue)
+	{ gtk_range_set_value(GTK_RANGE(SliderData), powf(RangeF(0, 1).Constrain(ValueRange.Percent(NewValue)), InverseSliderFactor)); }
+
+void Slider::HandleChangeSliderPosition(GtkWidget *, Slider *This)
+{
+	gtk_entry_set_text(GTK_ENTRY(This->EntryData), ((String)(MemoryStream() << OutputStream::Float(This->GetValue()).MaxFractionalDigits(4))).c_str());
+	if (This->Handler) This->Handler();
+}
+
+void Slider::HandleChangeEntryText(GtkWidget *, Slider *This)
+{
+	g_signal_handler_block(This->SliderData, This->SliderHandlerID);
+	float NewValue;
+	MemoryStream(gtk_entry_get_text(GTK_ENTRY(This->EntryData))) >> NewValue;
+	This->SetValue(NewValue);
+	g_signal_handler_unblock(This->SliderData, This->SliderHandlerID);
+	if (This->Handler) This->Handler();
+}
 
 // Check button
-CheckButton::CheckButton(ActionHandler *Target, const String &Text, bool StartState) :
+CheckButton::CheckButton(const String &Text, bool StartState) :
 	Widget(gtk_check_button_new_with_label(Text.c_str())),
-	Target(Target), ConnectionID(g_signal_connect(G_OBJECT(Data), "clicked", G_CALLBACK(PressHandler), this))
+	ConnectionID(g_signal_connect(G_OBJECT(Data), "clicked", G_CALLBACK(PressCallback), this))
 { 
 	g_signal_handler_block(G_OBJECT(Data), ConnectionID);
 	gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(Data), StartState); 
 	g_signal_handler_unblock(G_OBJECT(Data), ConnectionID);
 }
 
-CheckButton::CheckButton(ActionHandler *Target, bool StartState) :
+CheckButton::CheckButton(bool StartState) :
 	Widget(gtk_check_button_new()),
-	Target(Target), ConnectionID(g_signal_connect(G_OBJECT(Data), "clicked", G_CALLBACK(PressHandler), this))
+	ConnectionID(g_signal_connect(G_OBJECT(Data), "clicked", G_CALLBACK(PressCallback), this))
 {
 	g_signal_handler_block(G_OBJECT(Data), ConnectionID);
 	gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(Data), StartState); 
@@ -930,7 +946,13 @@ CheckButton::CheckButton(ActionHandler *Target, bool StartState) :
 }
 
 CheckButton::~CheckButton(void)
-	{ g_signal_handler_disconnect(G_OBJECT(Data), ConnectionID); }
+	{ if (Destroy) g_signal_handler_disconnect(G_OBJECT(Data), ConnectionID); }
+
+void CheckButton::SetAction(ActionHandler const &Handler)
+{
+	assert(!this->Handler);
+	this->Handler = Handler;
+}
 
 void CheckButton::SetPrompt(String const &NewPrompt)
 	{ gtk_button_set_label(GTK_BUTTON(Data), NewPrompt.c_str()); }
@@ -941,28 +963,38 @@ void CheckButton::SetValue(bool NewValue)
 bool CheckButton::GetValue(void)
 	{ return gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(Data)); }
 
-void CheckButton::PressHandler(GtkWidget *Widget, CheckButton *This)
-{
-	if (This->Target != NULL)
-		This->Target->Act(This);
-}
+void CheckButton::PressCallback(GtkWidget *, CheckButton *This)
+	{ if (This->Handler) This->Handler(); }
 
 // Wheel
-Wheel::Wheel(String const &Prompt, float Min, float Max, float Initial, bool Float) : Layout(true),
-	WheelData(gtk_spin_button_new_with_range(Min, Max, Float ? std::min(1.0f, (Max - Min) * 0.05f) : 1)),
+Wheel::Wheel(String const &Prompt, RangeF const &ValueRange, float Initial, bool Float) : Layout(true),
+	ValueRange(ValueRange),
+	WheelData(gtk_spin_button_new_with_range(ValueRange.Min, ValueRange.Max, 1)),
 	ConnectionID(g_signal_connect(G_OBJECT(WheelData), "value-changed", G_CALLBACK(SpinCallback), this))
 {
 	g_signal_handler_block(G_OBJECT(WheelData), ConnectionID); // Or else stuff starts triggering when fiddling with things
 	gtk_spin_button_set_snap_to_ticks(GTK_SPIN_BUTTON(WheelData), false);
-	if (Float) gtk_spin_button_set_digits(GTK_SPIN_BUTTON(WheelData), 2);
-	gtk_spin_button_set_value(GTK_SPIN_BUTTON(WheelData), Initial);
+	if (Float) 
+	{
+		float IncrementValue = ValueRange.Length() / 100.0f;
+		gtk_spin_button_set_digits(GTK_SPIN_BUTTON(WheelData), 2);
+		gtk_spin_button_set_increments(GTK_SPIN_BUTTON(WheelData), IncrementValue, IncrementValue * 10);
+	}
+	else
+	{
+		int IncrementValue = ValueRange.Length() < 100 ? 1 :
+				ValueRange.Length() < 1000 ? (int)ValueRange.Length() / 100 : (int)ValueRange.Length() / 1000 * 10;
+		gtk_spin_button_set_increments(GTK_SPIN_BUTTON(WheelData), IncrementValue, IncrementValue * 10);
+	}
+	gtk_spin_button_set_value(GTK_SPIN_BUTTON(WheelData), ValueRange.Constrain(Initial));
+	gtk_spin_button_set_numeric(GTK_SPIN_BUTTON(WheelData), true);
 	g_signal_handler_unblock(G_OBJECT(WheelData), ConnectionID);
 	Add(Label(Prompt));
 	AddFill(WheelData);
 }
 
 Wheel::~Wheel(void)
-	{ g_signal_handler_disconnect(G_OBJECT(WheelData), ConnectionID); }
+	{ if (Destroy) g_signal_handler_disconnect(G_OBJECT(WheelData), ConnectionID); }
 
 void Wheel::SetInputHandler(InputHandler const &Handler)
 {
@@ -985,23 +1017,23 @@ void Wheel::SetValue(int NewValue)
 void Wheel::SetValue(float NewValue)
 	{ gtk_spin_button_set_value(GTK_SPIN_BUTTON(WheelData), NewValue); }
 
-void Wheel::SpinCallback(GtkWidget *Widget, Wheel *This)
+void Wheel::SpinCallback(GtkWidget *, Wheel *This)
 	{ if (This->Handler) This->Handler(); }
 
 // Drop selection
-List::List(String const &Prompt, bool Multiline) : Widget(NULL),
+List::List(String const &Prompt, bool Multiline) : Widget(nullptr),
 	Multiline(Multiline), Added(0),
 	Store(gtk_list_store_new(2, G_TYPE_STRING, G_TYPE_BOOLEAN))
 {
 	GtkTreeModel *Model = GTK_TREE_MODEL(Store);
-	GtkTreeModel *FilteredModel = gtk_tree_model_filter_new(Model, NULL);
+	GtkTreeModel *FilteredModel = gtk_tree_model_filter_new(Model, nullptr);
 	gtk_tree_model_filter_set_visible_column(GTK_TREE_MODEL_FILTER(FilteredModel), 1);
 	GtkCellRenderer *ColumnRenderer = gtk_cell_renderer_text_new();
 
 	if (Multiline)
 	{
 		ListData = Data = gtk_tree_view_new_with_model(FilteredModel);
-		gtk_tree_view_insert_column_with_attributes(GTK_TREE_VIEW(Data), -1, Prompt.c_str(), ColumnRenderer, "text", 0, NULL);
+		gtk_tree_view_insert_column_with_attributes(GTK_TREE_VIEW(Data), -1, Prompt.c_str(), ColumnRenderer, "text", 0, nullptr);
 		ConnectionID = g_signal_connect(G_OBJECT(Data), "cursor-changed", G_CALLBACK(SelectCallback), this);
 	}
 	else
@@ -1010,8 +1042,9 @@ List::List(String const &Prompt, bool Multiline) : Widget(NULL),
 		PreData.Add(Label(Prompt));
 
 		ListData = gtk_combo_box_new_with_model(FilteredModel);
+		g_object_ref(G_OBJECT(ListData)); // Who knows why this is necessary.  GTK bug? Otherwise refs get down to 0 and there's a warning.  Version 2.24.10
 		gtk_cell_layout_pack_start(GTK_CELL_LAYOUT(ListData), ColumnRenderer, true);
-		gtk_cell_layout_set_attributes(GTK_CELL_LAYOUT(ListData), ColumnRenderer, "text", 0, NULL);
+		gtk_cell_layout_set_attributes(GTK_CELL_LAYOUT(ListData), ColumnRenderer, "text", 0, nullptr);
 		ConnectionID = g_signal_connect(G_OBJECT(ListData), "changed", G_CALLBACK(SelectCallback), this);
 		PreData.AddFill(ListData);
 		Data = PreData;
@@ -1020,8 +1053,8 @@ List::List(String const &Prompt, bool Multiline) : Widget(NULL),
 
 List::~List(void)
 {
-	g_object_unref(Store);
-	g_signal_handler_disconnect(G_OBJECT(ListData), ConnectionID);
+	if (Destroy) g_object_unref(Store);
+	if (Destroy) g_signal_handler_disconnect(G_OBJECT(ListData), ConnectionID);
 }
 		
 void List::SetInputHandler(InputHandler const &Handler)
@@ -1070,7 +1103,7 @@ void List::Remove(int Item)
 	bool Result;
 
 	GtkTreeIter Iterator;
-	Result = gtk_tree_model_iter_nth_child(GTK_TREE_MODEL(Store), &Iterator, NULL, Item); assert(Result);
+	Result = gtk_tree_model_iter_nth_child(GTK_TREE_MODEL(Store), &Iterator, nullptr, Item); assert(Result);
 	gtk_list_store_remove(Store, &Iterator);
 
 	Added--;
@@ -1080,8 +1113,8 @@ void List::MoveUp(int Item)
 {
 	assert(Item > 0);
 	GtkTreeIter From, To;
-	bool Result = gtk_tree_model_iter_nth_child(GTK_TREE_MODEL(Store), &From, NULL, Item); assert(Result);
-	Result = gtk_tree_model_iter_nth_child(GTK_TREE_MODEL(Store), &To, NULL, Item - 1); assert(Result);
+	bool Result = gtk_tree_model_iter_nth_child(GTK_TREE_MODEL(Store), &From, nullptr, Item); assert(Result);
+	Result = gtk_tree_model_iter_nth_child(GTK_TREE_MODEL(Store), &To, nullptr, Item - 1); assert(Result);
 	gtk_list_store_swap(Store, &From, &To);
 }
 
@@ -1089,29 +1122,29 @@ void List::MoveDown(int Item)
 {
 	assert(Item >= 0);
 	GtkTreeIter From, To;
-	bool Result = gtk_tree_model_iter_nth_child(GTK_TREE_MODEL(Store), &From, NULL, Item); assert(Result);
-	Result = gtk_tree_model_iter_nth_child(GTK_TREE_MODEL(Store), &To, NULL, Item + 1); assert(Result);
+	bool Result = gtk_tree_model_iter_nth_child(GTK_TREE_MODEL(Store), &From, nullptr, Item); assert(Result);
+	Result = gtk_tree_model_iter_nth_child(GTK_TREE_MODEL(Store), &To, nullptr, Item + 1); assert(Result);
 	gtk_list_store_swap(Store, &From, &To);
 }
 
 void List::Rename(int Item, const String &NewString)
 {
 	GtkTreeIter Iterator;
-	bool Result = gtk_tree_model_iter_nth_child(GTK_TREE_MODEL(Store), &Iterator, NULL, Item); assert(Result);
+	bool Result = gtk_tree_model_iter_nth_child(GTK_TREE_MODEL(Store), &Iterator, nullptr, Item); assert(Result);
 	gtk_list_store_set(Store, &Iterator, 0, NewString.c_str(), -1);
 }
 
 void List::Hide(int Item)
 {
 	GtkTreeIter Iterator;
-	bool Result = gtk_tree_model_iter_nth_child(GTK_TREE_MODEL(Store), &Iterator, NULL, Item); assert(Result);
+	bool Result = gtk_tree_model_iter_nth_child(GTK_TREE_MODEL(Store), &Iterator, nullptr, Item); assert(Result);
 	gtk_list_store_set(Store, &Iterator, 1, false, -1);
 }
 
 void List::Show(int Item)
 {
 	GtkTreeIter Iterator;
-	bool Result = gtk_tree_model_iter_nth_child(GTK_TREE_MODEL(Store), &Iterator, NULL, Item); assert(Result);
+	bool Result = gtk_tree_model_iter_nth_child(GTK_TREE_MODEL(Store), &Iterator, nullptr, Item); assert(Result);
 	gtk_list_store_set(Store, &Iterator, 1, true, -1);
 }
 
@@ -1131,13 +1164,13 @@ void List::Select(int NewSelection)
 	bool Result;
 
 #ifndef NDEBUG
-	Result = gtk_tree_model_iter_nth_child(GTK_TREE_MODEL(Store), &Iterator, NULL, NewSelection); assert(Result);
+	Result = gtk_tree_model_iter_nth_child(GTK_TREE_MODEL(Store), &Iterator, nullptr, NewSelection); assert(Result);
 	bool IsVisible;
 	gtk_tree_model_get(GTK_TREE_MODEL(Store), &Iterator, 1, &IsVisible, -1);
 	assert(IsVisible);
 #endif
 
-	Result = gtk_tree_model_iter_nth_child(GTK_TREE_MODEL(Store), &Iterator, NULL, NewSelection); assert(Result);
+	Result = gtk_tree_model_iter_nth_child(GTK_TREE_MODEL(Store), &Iterator, nullptr, NewSelection); assert(Result);
 
 	if (Multiline)
 	{
@@ -1157,14 +1190,14 @@ void List::Select(int NewSelection)
 int List::GetSelection(void)
 {
 	GtkTreeIter FilteredIterator;
-	GtkTreeModelFilter *FilteredStore = NULL;
+	GtkTreeModelFilter *FilteredStore = nullptr;
 	if (Multiline)
 	{
 		FilteredStore = GTK_TREE_MODEL_FILTER(gtk_tree_view_get_model(GTK_TREE_VIEW(ListData)));
 
 		GtkTreePath *FilteredPath;
-		gtk_tree_view_get_cursor(GTK_TREE_VIEW(ListData), &FilteredPath, NULL);
-		if (FilteredPath == NULL) return -1;
+		gtk_tree_view_get_cursor(GTK_TREE_VIEW(ListData), &FilteredPath, nullptr);
+		if (FilteredPath == nullptr) return -1;
 
 		gtk_tree_model_get_iter(GTK_TREE_MODEL(FilteredStore), &FilteredIterator, FilteredPath);
 		gtk_tree_path_free(FilteredPath);
@@ -1176,42 +1209,39 @@ int List::GetSelection(void)
 		int FilteredSelection = gtk_combo_box_get_active(GTK_COMBO_BOX(ListData));
 		if (FilteredSelection < 0) return -1;
 
-		bool Result = gtk_tree_model_iter_nth_child(gtk_combo_box_get_model(GTK_COMBO_BOX(ListData)), &FilteredIterator, NULL, FilteredSelection); assert(Result);
+		bool Result = gtk_tree_model_iter_nth_child(gtk_combo_box_get_model(GTK_COMBO_BOX(ListData)), &FilteredIterator, nullptr, FilteredSelection); assert(Result);
 	}
 
 	GtkTreeIter Iterator;
 	gtk_tree_model_filter_convert_iter_to_child_iter(FilteredStore, &Iterator, &FilteredIterator);
 	GtkTreePath *RealPath;
 	RealPath = gtk_tree_model_get_path(GTK_TREE_MODEL(Store), &Iterator);
-	assert(RealPath != NULL);
+	assert(RealPath != nullptr);
 	int Out = gtk_tree_path_get_indices(RealPath)[0];
 	gtk_tree_path_free(RealPath);
 	return Out;
 }
 
-void List::SelectCallback(GtkWidget *Widget, List *This)
+void List::SelectCallback(GtkWidget *, List *This)
 	{ if (This->Handler) This->Handler(); }
 
 // Toolbar as a menu button
-MenuButton::MenuButton(const String &Label, DefaultIcons Icon) : Button(this, Label, Icon)
-	{}
+MenuButton::MenuButton(const String &Label, DefaultIcons Icon) : Button(Label, Icon)
+{
+	MenuData.SetPositionHandler([&](gint &X, gint &Y)
+	{
+		gdk_window_get_origin(Data->window, &X, &Y);
+		X += Data->allocation.x;
+		Y += Data->allocation.y + Data->allocation.height;
+	});
+	SetAction([&](void) { MenuData.Activate(); });
+}
 
 MenuItem *MenuButton::Add(MenuItem *NewItem)
 	{ return MenuData.Add(NewItem); }
 
 void MenuButton::AddSeparator(void)
 	{ MenuData.AddSeparator(); }
-
-void MenuButton::Act(void const *Source)
-	{ MenuData.Activate((GtkMenuPositionFunc)Positioning, this); }
-
-void MenuButton::Positioning(GtkMenu *Widget, gint *X, gint *Y, gboolean *ShouldPushFit, MenuButton *This)
-{
-	gdk_window_get_origin(This->Data->window, X, Y);
-	*X += This->Data->allocation.x;
-	*Y += This->Data->allocation.y + This->Data->allocation.height;
-	*ShouldPushFit = true;
-}
 
 // File thing 1 s
 DirectorySelect::DirectorySelect(String const &Prompt, const String &InitialDirectory) :
@@ -1227,7 +1257,7 @@ DirectorySelect::DirectorySelect(String const &Prompt, const String &InitialDire
 }
 
 DirectorySelect::~DirectorySelect(void)
-	{ g_signal_handler_disconnect(G_OBJECT(ButtonData), ConnectionID); }
+	{ if (Destroy) g_signal_handler_disconnect(G_OBJECT(ButtonData), ConnectionID); }
 
 void DirectorySelect::SetAction(ActionHandler const &Handler)
 {
@@ -1243,13 +1273,13 @@ String DirectorySelect::GetValue(void)
 	return Out;
 }
 
-void DirectorySelect::OpenHandler(GtkWidget *Widget, DirectorySelect *This)
+void DirectorySelect::OpenCallback(GtkWidget *, DirectorySelect *This)
 	{ if (This->Handler) This->Handler(); }
 
-OpenSelect::OpenSelect(ActionHandler *Handler, String const &Prompt, String const &InitialFile, String const &FilterName) :
+OpenSelect::OpenSelect(String const &Prompt, String const &InitialFile, String const &FilterName) :
 	Layout(true),
 	ButtonData(gtk_file_chooser_button_new("Select file", GTK_FILE_CHOOSER_ACTION_OPEN)),
-	Handler(Handler), ConnectionID(g_signal_connect(G_OBJECT(ButtonData), "file-set", G_CALLBACK(OpenCallback), this))
+	ConnectionID(g_signal_connect(G_OBJECT(ButtonData), "file-set", G_CALLBACK(OpenCallback), this))
 {
 	gtk_widget_set_size_request(ButtonData, 150, -1);
 	
@@ -1265,7 +1295,7 @@ OpenSelect::OpenSelect(ActionHandler *Handler, String const &Prompt, String cons
 }
 
 OpenSelect::~OpenSelect(void)
-	{ g_signal_handler_disconnect(G_OBJECT(ButtonData), ConnectionID); }
+	{ if (Destroy) g_signal_handler_disconnect(G_OBJECT(ButtonData), ConnectionID); }
 
 void OpenSelect::SetAction(ActionHandler const &Handler)
 {
@@ -1275,7 +1305,7 @@ void OpenSelect::SetAction(ActionHandler const &Handler)
 
 void OpenSelect::AddFilterPass(const String &Filter)
 {
-	assert(SingleFilter != NULL);
+	assert(SingleFilter != nullptr);
 	gtk_file_filter_add_pattern(SingleFilter, Filter.c_str());
 }
 
@@ -1287,11 +1317,11 @@ String OpenSelect::GetValue(void)
 	return Out;
 }
 
-void OpenSelect::OpenCallback(GtkWidget *Widget, OpenSelect *This)
+void OpenSelect::OpenCallback(GtkWidget *, OpenSelect *This)
 	{ if (This->Handler) This->Handler(); }
 
 OutputSelect::OutputSelect(String const &Prompt, String const &InitialDirectory) : Layout(true),
-	Location(NULL, "", InitialDirectory), SelectButton(this, "Select...")
+	Location("", InitialDirectory), SelectButton("Select...")
 {
 	if (!Prompt.empty())
 		Add(Label(Prompt));
@@ -1304,7 +1334,7 @@ OutputSelect::OutputSelect(String const &Prompt, String const &InitialDirectory)
 			GTK_FILE_CHOOSER_ACTION_SAVE,
 			GTK_STOCK_CANCEL, GTK_RESPONSE_CANCEL,
 			GTK_STOCK_SAVE, GTK_RESPONSE_ACCEPT,
-			NULL);
+			nullptr);
 		gtk_file_chooser_set_filename(GTK_FILE_CHOOSER(SaveDialog), Location.GetValue().c_str());
 
 		if (gtk_dialog_run(GTK_DIALOG(SaveDialog)) == GTK_RESPONSE_ACCEPT)
@@ -1316,7 +1346,7 @@ OutputSelect::OutputSelect(String const &Prompt, String const &InitialDirectory)
 
 		gtk_widget_destroy(SaveDialog);
 
-		if (Handler) Handler()
+		if (Handler) Handler();
 	});
 	Add(SelectButton);
 }
@@ -1331,7 +1361,7 @@ String OutputSelect::GetValue(void)
 	{ return Location.GetValue(); }
 
 // Toolbox
-Toolbox::Toolbox(void) : Widget(NULL), IDCounter(0)
+Toolbox::Toolbox(void) : Widget(nullptr), IDCounter(0)
 {
 	Model = gtk_list_store_new(3, G_TYPE_STRING, GDK_TYPE_PIXBUF, G_TYPE_INT, -1);
 
@@ -1344,7 +1374,7 @@ Toolbox::Toolbox(void) : Widget(NULL), IDCounter(0)
 }
 
 Toolbox::~Toolbox(void)
-	{ g_signal_handler_disconnect(G_OBJECT(Data), ConnectionID); }
+	{ if (Destroy) g_signal_handler_disconnect(G_OBJECT(Data), ConnectionID); }
 
 void Toolbox::ForceColumns(int ColumnCount)
 	{ gtk_icon_view_set_columns(GTK_ICON_VIEW(Data), ColumnCount); }
@@ -1354,17 +1384,17 @@ int Toolbox::AddItem(const String &Image, const String &Text)
 	GtkTreeIter NewIterator;
 	gtk_list_store_append(GTK_LIST_STORE(Model), &NewIterator);
 
-	GdkPixbuf *NewPixbuf = NULL;
+	GdkPixbuf *NewPixbuf = nullptr;
 	if (!Image.empty())
 	{
-		GError *PixbufError = NULL;
+		GError *PixbufError = nullptr;
 		NewPixbuf = gdk_pixbuf_new_from_file(Image.c_str(), &PixbufError);
-		if (NewPixbuf == NULL)
+		if (NewPixbuf == nullptr)
 			g_print("Error loading toolbox image %s: %s\n",
 				Image.c_str(), PixbufError->message);
 	}
-	if (NewPixbuf == NULL) NewPixbuf = gtk_widget_render_icon(Data,
-		GTK_STOCK_MISSING_IMAGE, GTK_ICON_SIZE_SMALL_TOOLBAR, NULL);
+	if (NewPixbuf == nullptr) NewPixbuf = gtk_widget_render_icon(Data,
+		GTK_STOCK_MISSING_IMAGE, GTK_ICON_SIZE_SMALL_TOOLBAR, nullptr);
 
 	gtk_list_store_set(Model, &NewIterator,
 		0, Text.c_str(),
@@ -1379,7 +1409,7 @@ int Toolbox::GetSelected(void)
 {
 	GList *Selection = gtk_icon_view_get_selected_items(GTK_ICON_VIEW(Data));
 
-	if (Selection == NULL) return -1;
+	if (Selection == nullptr) return -1;
 
 	assert(g_list_length(Selection) == 1);
 
@@ -1389,7 +1419,7 @@ int Toolbox::GetSelected(void)
 	gint ID;
 	gtk_tree_model_get(GTK_TREE_MODEL(Model), &Selected, 2, &ID, -1);
 
-	g_list_foreach(Selection, (GFunc)gtk_tree_path_free, NULL);
+	g_list_foreach(Selection, (GFunc)gtk_tree_path_free, nullptr);
 	g_list_free(Selection);
 
 	return ID;
@@ -1401,10 +1431,10 @@ void Toolbox::Unselect(void)
 void Toolbox::Clear(void)
 	{ gtk_list_store_clear(GTK_LIST_STORE(Model)); IDCounter = 0; }
 
-void Toolbox::OnSelect(int NewSelection)
+void Toolbox::OnSelect(int)
 	{}
 
-void Toolbox::HandleSelect(GtkWidget *Data, Toolbox *This)
+void Toolbox::HandleSelect(GtkWidget *, Toolbox *This)
 	{ This->OnSelect(This->GetSelected()); }
 
 // Toolbar, button menu type
@@ -1454,7 +1484,7 @@ FileDialog::FileDialog(const String &Title, const String &FilterName, Window *Pa
 		(SaveMode) ? GTK_FILE_CHOOSER_ACTION_SAVE : GTK_FILE_CHOOSER_ACTION_OPEN,
 		GTK_STOCK_CANCEL, GTK_RESPONSE_CANCEL,
 		(SaveMode) ? GTK_STOCK_SAVE : GTK_STOCK_OPEN, GTK_RESPONSE_ACCEPT,
-		NULL);
+		nullptr);
 
 	//if (SaveMode)
 	//	gtk_file_chooser_set_do_overwrite_confirmation(GTK_FILE_CHOOSER(Data), true);
@@ -1467,8 +1497,8 @@ FileDialog::FileDialog(const String &Title, const String &FilterName, Window *Pa
 
 void FileDialog::AddFilterPass(const String &Pattern)
 {
-	assert(Data != NULL);
-	assert(SingleFilter != NULL);
+	assert(Data != nullptr);
+	assert(SingleFilter != nullptr);
 	gtk_file_filter_add_pattern(SingleFilter, Pattern.c_str());
 }
 
@@ -1477,19 +1507,19 @@ void FileDialog::SetDefaultSuffix(const String &NewSuffix)
 
 void FileDialog::SetFile(const String &NewFile)
 {
-	assert(Data != NULL);
+	assert(Data != nullptr);
 	gtk_file_chooser_set_filename(GTK_FILE_CHOOSER(Data), NewFile.c_str());
 }
 
 void FileDialog::SetDirectory(const String &NewDirectory)
 {
-	assert(Data != NULL);
+	assert(Data != nullptr);
 	gtk_file_chooser_set_current_folder(GTK_FILE_CHOOSER(Data), NewDirectory.c_str());
 }
 
 String FileDialog::Run(void)
 {
-	assert(Data != NULL);
+	assert(Data != nullptr);
 
 	String Out;
 	if (gtk_dialog_run(GTK_DIALOG(Data)) == GTK_RESPONSE_ACCEPT)
@@ -1498,40 +1528,52 @@ String FileDialog::Run(void)
 		Out = PreOut;
 		g_free(PreOut);
 
-		if (Right(Out, Suffix.size()) != Suffix)
+		if ((Out.size() < Suffix.size()) || 
+			(Out.substr(Out.size() - Suffix.size(), Suffix.size()) != Suffix))
 			Out += Suffix;
 	}
 
 	gtk_widget_destroy(Data);
-	Data = NULL;
+	Data = nullptr;
 
 	return Out;
 }
 
 // COlor select button
-ColorButton::ColorButton(const Color &InitialColor, bool SelectAlpha) : Widget(gtk_color_button_new()),
-	ConnectionID(g_signal_connect(G_OBJECT(Data), "color-set", G_CALLBACK(HandleSelect), this)),
-	Alpha(SelectAlpha)
+ColorButton::ColorButton(String const &Prompt, Color const &InitialColor, bool SelectAlpha) : Layout(true),
+	Alpha(SelectAlpha),
+	ButtonData(gtk_color_button_new()),
+	ConnectionID(g_signal_connect(G_OBJECT(ButtonData), "color-set", G_CALLBACK(HandleSelect), this)),
+	Prompt(Prompt)
 {
 	if (Alpha)
-		gtk_color_button_set_use_alpha(GTK_COLOR_BUTTON(Data), true);
+		gtk_color_button_set_use_alpha(GTK_COLOR_BUTTON(ButtonData), true);
 
 	SetColor(InitialColor);
+
+	Add(this->Prompt);
+	Add(ButtonData);
 }
 
 ColorButton::~ColorButton(void)
-	{ g_signal_handler_disconnect(G_OBJECT(Data), ConnectionID); }
+	{ if (Destroy) g_signal_handler_disconnect(G_OBJECT(ButtonData), ConnectionID); }
+
+void ColorButton::SetAction(ActionHandler const &Handler)
+{
+	assert(!this->Handler);
+	this->Handler = Handler;
+}
 
 Color ColorButton::GetColor(void)
 {
 	GdkColor PreOut;
-	gtk_color_button_get_color(GTK_COLOR_BUTTON(Data), &PreOut);
+	gtk_color_button_get_color(GTK_COLOR_BUTTON(ButtonData), &PreOut);
 	Color Out(
 		(float)PreOut.red / 65535.0f,
 		(float)PreOut.green / 65535.0f,
 		(float)PreOut.blue / 65535.0f);
 
-	if (Alpha) Out.Alpha = (float)gtk_color_button_get_alpha(GTK_COLOR_BUTTON(Data)) / 65535.0f;
+	if (Alpha) Out.Alpha = (float)gtk_color_button_get_alpha(GTK_COLOR_BUTTON(ButtonData)) / 65535.0f;
 
 	return Out;
 }
@@ -1542,12 +1584,61 @@ void ColorButton::SetColor(const Color &NewColor)
 	ColorConversion.red = std::min(NewColor.Red * 65535, 65535.0f);
 	ColorConversion.green = std::min(NewColor.Green * 65535, 65535.0f);
 	ColorConversion.blue = std::min(NewColor.Blue * 65535, 65535.0f);
-	gtk_color_button_set_color(GTK_COLOR_BUTTON(Data), &ColorConversion);
+	gtk_color_button_set_color(GTK_COLOR_BUTTON(ButtonData), &ColorConversion);
 
-	if (Alpha) gtk_color_button_set_alpha(GTK_COLOR_BUTTON(Data), NewColor.Alpha);
+	if (Alpha) gtk_color_button_set_alpha(GTK_COLOR_BUTTON(ButtonData), NewColor.Alpha);
 }
 
-void ColorButton::OnSelect(const Color &NewColor) {}
+void ColorButton::HandleSelect(GtkWidget *, ColorButton *This)
+	{ if (This->Handler) This->Handler(); }
 
-void ColorButton::HandleSelect(GtkWidget *Widget, ColorButton *This)
-	{ This->OnSelect(This->GetColor()); }
+// Color toggle button
+const FlatVector ColorToggleButtonSize(54, 48);
+ColorToggleButton::ColorToggleButton(bool InitiallyFore, const Color &ForegroundColor, const Color &BackgroundColor) : Widget(gtk_button_new()),
+	State(InitiallyFore), Foreground(ForegroundColor), Background(BackgroundColor),
+	ColorArea(gtk_drawing_area_new())
+{
+	gtk_widget_set_size_request(ColorArea, ColorToggleButtonSize[0], ColorToggleButtonSize[1]);
+	RefreshConnectionID = g_signal_connect(G_OBJECT(ColorArea), "expose_event", G_CALLBACK(RefreshCallback), this);
+
+	gtk_button_set_image(GTK_BUTTON(Data), ColorArea);
+	ClickConnectionID = g_signal_connect(G_OBJECT(Data), "clicked", G_CALLBACK(ClickCallback), this);
+}
+
+ColorToggleButton::~ColorToggleButton(void)
+{
+	if (Destroy) g_signal_handler_disconnect(G_OBJECT(Data), ClickConnectionID);
+	if (Destroy) g_signal_handler_disconnect(G_OBJECT(Data), RefreshConnectionID);
+}
+
+bool ColorToggleButton::GetState(void)
+	{ return State; }
+
+void ColorToggleButton::SetForegroundColor(const Color &NewForegroundColor)
+	{ Foreground = NewForegroundColor; if (State) Refresh(); }
+
+void ColorToggleButton::SetBackgroundColor(const Color &NewBackgroundColor)
+	{ Background = NewBackgroundColor; if (!State) Refresh(); }
+
+void ColorToggleButton::Refresh()
+{
+	if (!GDK_IS_WINDOW(ColorArea->window)) return;
+	const GdkRectangle RefreshRectangle = {0, 0, ColorArea->allocation.width, ColorArea->allocation.height};
+	gdk_window_invalidate_rect(ColorArea->window, &RefreshRectangle, false);
+	gdk_window_process_updates(ColorArea->window, false);
+}
+
+gboolean ColorToggleButton::RefreshCallback(GtkWidget *, GdkEventExpose *Event, ColorToggleButton *This)
+{
+	cairo_t *CairoContext = gdk_cairo_create(Event->window);
+	Color &FillColor = This->State ? This->Foreground : This->Background;
+	cairo_set_source_rgb(CairoContext, FillColor.Red, FillColor.Green, FillColor.Blue);
+	cairo_paint(CairoContext);
+	cairo_destroy(CairoContext);
+
+	return true;
+}
+
+void ColorToggleButton::ClickCallback(GtkWidget *, ColorToggleButton *This)
+	{ This->State = !This->State; }
+

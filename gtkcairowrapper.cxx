@@ -175,16 +175,16 @@ float VectorArea::GetTextWidth(const String &Text)
 
 void VectorArea::PrintNumber(float Number, TextAlignment Alignment, const FlatVector &Position)
 {
-	StringStream ToText;
+	MemoryStream ToText;
 	ToText << Number;
-	Print(ToText.str(), Alignment, Position);
+	Print(ToText, Alignment, Position);
 }
 
 void VectorArea::PrintHex(unsigned int Number, TextAlignment Alignment, const FlatVector &Position)
 {
-	StringStream ToText;
-	ToText << std::hex << Number;
-	Print(ToText.str(), Alignment, Position);
+	MemoryStream ToText;
+	ToText << OutputStream::Hex(Number);
+	Print(ToText, Alignment, Position);
 }
 
 void VectorArea::Print(String const &Text, TextAlignment Alignment, FlatVector const &Position)
@@ -357,12 +357,12 @@ FlatVector VectorArea::GetSize(void)
 	return FlatVector(Data->allocation.width, Data->allocation.height);
 }
 
-void VectorArea::ResizeEvent(FlatVector const &NewSize) {}
+void VectorArea::ResizeEvent(FlatVector const &) {}
 void VectorArea::Draw(void) {}
-void VectorArea::ClickEvent(FlatVector const &Cursor, bool LeftChanged, bool MiddleChanged, bool RightChanged) {}
-void VectorArea::DeclickEvent(FlatVector const &Cursor, bool LeftChanged, bool MiddleChanged, bool RightChanged) {}
-void VectorArea::ScrollEvent(FlatVector const &Cursor, int VerticalScroll, int HorizontalScroll) {}
-void VectorArea::MoveEvent(FlatVector const &Cursor) {}
+void VectorArea::ClickEvent(FlatVector const &, bool, bool, bool) {}
+void VectorArea::DeclickEvent(FlatVector const &, bool, bool, bool) {}
+void VectorArea::ScrollEvent(FlatVector const &, int, int) {}
+void VectorArea::MoveEvent(FlatVector const &) {}
 void VectorArea::EnterEvent(void) {}
 void VectorArea::LeaveEvent(void) {}
 
@@ -383,19 +383,19 @@ void VectorArea::DrawInternal(int X, int Y, int Width, int Height)
 	CairoContext = NULL;
 }
 
-gboolean VectorArea::ResizeHandler(GtkWidget *Widget, GdkEventConfigure *Event, VectorArea *This)
+gboolean VectorArea::ResizeHandler(GtkWidget *, GdkEventConfigure *, VectorArea *This)
 {
-	This->ResizeEvent(FlatVector(Widget->allocation.width, Widget->allocation.height));
+	This->ResizeEvent(FlatVector(This->Data->allocation.width, This->Data->allocation.height));
 	return true;
 }
 
-gboolean VectorArea::DrawHandler(GtkWidget *Widget, GdkEventExpose *Event, VectorArea *This)
+gboolean VectorArea::DrawHandler(GtkWidget *, GdkEventExpose *Event, VectorArea *This)
 {
 	This->DrawInternal(Event->area.x, Event->area.y, Event->area.width, Event->area.height);
 	return true;
 }
 
-gboolean VectorArea::ClickHandler(GtkWidget *Widget, GdkEventButton *Event, VectorArea *This)
+gboolean VectorArea::ClickHandler(GtkWidget *, GdkEventButton *Event, VectorArea *This)
 {
 	if (Event->type != GDK_BUTTON_PRESS) return false;
 	if (Event->button == 1) This->Left = true;
@@ -407,9 +407,9 @@ gboolean VectorArea::ClickHandler(GtkWidget *Widget, GdkEventButton *Event, Vect
 	return false;
 }
 
-gboolean VectorArea::DeclickHandler(GtkWidget *Widget, GdkEventButton *Event, VectorArea *This)
+gboolean VectorArea::DeclickHandler(GtkWidget *, GdkEventButton *Event, VectorArea *This)
 {
-	gtk_widget_grab_focus(Widget);
+	gtk_widget_grab_focus(This->Data);
 	if (Event->button == 1) This->Left = false;
 	if (Event->button == 2) This->Middle = false;
 	if (Event->button == 3) This->Right = false;
@@ -420,7 +420,7 @@ gboolean VectorArea::DeclickHandler(GtkWidget *Widget, GdkEventButton *Event, Ve
 	return false;
 }
 
-gboolean VectorArea::ScrollHandler(GtkWidget *Widget, GdkEventScroll *Event, VectorArea *This)
+gboolean VectorArea::ScrollHandler(GtkWidget *, GdkEventScroll *Event, VectorArea *This)
 {
 	This->ScrollEvent(FlatVector(Event->x, Event->y),
 		(Event->direction == GDK_SCROLL_DOWN) ? 1 : (Event->direction == GDK_SCROLL_UP) ? -1 : 0, 
@@ -429,7 +429,7 @@ gboolean VectorArea::ScrollHandler(GtkWidget *Widget, GdkEventScroll *Event, Vec
 	return false;
 }
 
-gboolean VectorArea::MoveHandler(GtkWidget *Widget, GdkEventMotion *Event, VectorArea *This)
+gboolean VectorArea::MoveHandler(GtkWidget *, GdkEventMotion *Event, VectorArea *This)
 {
 	This->MoveEvent(FlatVector(Event->x, Event->y));
 	//	Event->state &
@@ -438,10 +438,10 @@ gboolean VectorArea::MoveHandler(GtkWidget *Widget, GdkEventMotion *Event, Vecto
 	return false;
 }
 
-gboolean VectorArea::EnterHandler(GtkWidget *Widget, GdkEventCrossing *Event, VectorArea *This)
+gboolean VectorArea::EnterHandler(GtkWidget *, GdkEventCrossing *, VectorArea *This)
 	{ This->EnterEvent(); return false; }
 
-gboolean VectorArea::LeaveHandler(GtkWidget *Widget, GdkEventCrossing *Event, VectorArea *This)
+gboolean VectorArea::LeaveHandler(GtkWidget *, GdkEventCrossing *, VectorArea *This)
 	{ This->LeaveEvent(); return false; }
 
 // Slate

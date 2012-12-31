@@ -5,9 +5,9 @@
 
 #include "gtkwrapper.h"
 
-#include <ren-general/rotation.h>
-#include <ren-general/pool.h>
-#include <ren-general/region.h>
+#include "../ren-general/rotation.h"
+#include "../ren-general/pool.h"
+#include "../ren-general/region.h"
 
 enum TextAlignment { taLeft, taMiddle, taFullMiddle, taRight };
 
@@ -101,25 +101,25 @@ class VectorArea : private Pool<std::pair<int, VectorArea *>, FontData> // Depre
 		bool ShouldPartialRefresh;
 
 		void DrawInternal(int X, int Y, int Width, int Height);
-		static gboolean ResizeHandler(GtkWidget *Widget, GdkEventConfigure *Event, VectorArea *This);
-		static gboolean DrawHandler(GtkWidget *Widget, GdkEventExpose *Event, VectorArea *This);
-		static gboolean ClickHandler(GtkWidget *Widget, GdkEventButton *Event, VectorArea *This);
-		static gint ScrollHandler(GtkWidget *Widget, GdkEventScroll *Event, VectorArea *This);
-		static gboolean DeclickHandler(GtkWidget *Widget, GdkEventButton *Event, VectorArea *This);
-		static gboolean MoveHandler(GtkWidget *Widget, GdkEventMotion *Event, VectorArea *This);
-		static gboolean EnterHandler(GtkWidget *Widget, GdkEventCrossing *Event, VectorArea *This);
-		static gboolean LeaveHandler(GtkWidget *Widget, GdkEventCrossing *Event, VectorArea *This);
+		static gboolean ResizeHandler(GtkWidget *, GdkEventConfigure *, VectorArea *This);
+		static gboolean DrawHandler(GtkWidget *, GdkEventExpose *Event, VectorArea *This);
+		static gboolean ClickHandler(GtkWidget *, GdkEventButton *Event, VectorArea *This);
+		static gint ScrollHandler(GtkWidget *, GdkEventScroll *Event, VectorArea *This);
+		static gboolean DeclickHandler(GtkWidget *, GdkEventButton *Event, VectorArea *This);
+		static gboolean MoveHandler(GtkWidget *, GdkEventMotion *Event, VectorArea *This);
+		static gboolean EnterHandler(GtkWidget *, GdkEventCrossing *, VectorArea *This);
+		static gboolean LeaveHandler(GtkWidget *, GdkEventCrossing *, VectorArea *This);
 };
 
 class Slate : public VectorArea
 {
 	private:
-		std::function<void (FlatVector const &/*NewSize*/)> ResizeHandler;
+		std::function<void (FlatVector const &NewSize)> ResizeHandler;
 		std::function<void (void)> DrawHandler;
-		std::function<void (FlatVector const &/*Cursor*/, bool /*LeftChanged*/, bool /*MiddleChanged*/, bool /*RightChanged*/)> ClickHandler;
-		std::function<void (FlatVector const &/*Cursor*/, bool /*LeftChanged*/, bool /*MiddleChanged*/, bool /*RightChanged*/)> DeclickHandler;
-		std::function<void (FlatVector const &/*Cursor*/, int /*VerticalScroll*/, int /*HorizontalScroll*/)> ScrollHandler;
-		std::function<void (FlatVector const &/*Cursor*/)> MoveHandler;
+		std::function<void (FlatVector const &Cursor, bool LeftChanged, bool MiddleChanged, bool RightChanged)> ClickHandler;
+		std::function<void (FlatVector const &Cursor, bool LeftChanged, bool MiddleChanged, bool RightChanged)> DeclickHandler;
+		std::function<void (FlatVector const &Cursor, int VerticalScroll, int HorizontalScroll)> ScrollHandler;
+		std::function<void (FlatVector const &Cursor)> MoveHandler;
 		std::function<void (void)> EnterHandler;
 		std::function<void (void)> LeaveHandler;
 	
