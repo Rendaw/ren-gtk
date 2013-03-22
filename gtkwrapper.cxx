@@ -1586,7 +1586,7 @@ void ColorButton::SetColor(const Color &NewColor)
 	ColorConversion.blue = std::min(NewColor.Blue * 65535, 65535.0f);
 	gtk_color_button_set_color(GTK_COLOR_BUTTON(ButtonData), &ColorConversion);
 
-	if (Alpha) gtk_color_button_set_alpha(GTK_COLOR_BUTTON(ButtonData), NewColor.Alpha);
+	if (Alpha) gtk_color_button_set_alpha(GTK_COLOR_BUTTON(ButtonData), std::min(NewColor.Alpha * 65535, 65535.0f));
 }
 
 void ColorButton::HandleSelect(GtkWidget *, ColorButton *This)
