@@ -38,7 +38,7 @@ const char *ConvertStock(DefaultIcons From)
 		case diCancel: return GTK_STOCK_CANCEL;
 		case diClose: return GTK_STOCK_CLOSE;
 		case diQuit: return GTK_STOCK_QUIT;
-		default: assert(false);
+		default: assert(false); return nullptr;
 	}
 }
 
