@@ -1451,16 +1451,17 @@ Toolbar::Toolbar(void) : Widget(gtk_toolbar_new())
 	gtk_toolbar_set_style(GTK_TOOLBAR(Data), GTK_TOOLBAR_BOTH_HORIZ);
 }
 
-ToolButton *Toolbar::Add(ToolButton *NewItem, int AtPosition)
+void Toolbar::Add(ToolButton &NewItem, int AtPosition)
 {
-	gtk_toolbar_insert(GTK_TOOLBAR(Data), GTK_TOOL_ITEM((GtkWidget *)*NewItem), AtPosition);
-	gtk_widget_show(*NewItem);
-	return NewItem;
+	gtk_toolbar_insert(GTK_TOOLBAR(Data), GTK_TOOL_ITEM((GtkWidget *)NewItem), AtPosition);
+	gtk_tool_item_set_is_important(GTK_TOOL_ITEM((GtkWidget *)NewItem), true);
+	gtk_widget_show(NewItem);
 }
 
 void Toolbar::Add(GtkWidget *Item, int AtPosition)
 {
 	GtkToolItem *NewToolItem = gtk_tool_item_new();
+	gtk_tool_item_set_is_important(NewToolItem, true);
 	gtk_container_add(GTK_CONTAINER(NewToolItem), Item);
 	gtk_widget_show(Item);
 

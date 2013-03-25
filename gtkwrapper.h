@@ -682,7 +682,7 @@ class Toolbar : public Widget
 	public:
 		Toolbar(void);
 
-		ToolButton *Add(ToolButton *NewItem, int AtPosition = -1);
+		void Add(ToolButton &NewItem, int AtPosition = -1);
 		void Add(GtkWidget *Item, int AtPosition = -1);
 		void AddSpacer(int AtPosition = -1);
 		void AddSpace(int AtPosition = -1);
