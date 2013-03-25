@@ -597,11 +597,12 @@ class MenuButton : public Button
 class DirectorySelect : public Layout
 {
 	public:
-		DirectorySelect(String const &Prompt, const String &InitialDirectory);
+		DirectorySelect(String const &Prompt, String const &InitialDirectory);
 		~DirectorySelect(void);
 
 		void SetAction(ActionHandler const &Handler);
 
+		void SetValue(String const &NewDirectory);
 		String GetValue(void);
 
 	private:

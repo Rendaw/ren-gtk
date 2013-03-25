@@ -1252,7 +1252,9 @@ DirectorySelect::DirectorySelect(String const &Prompt, const String &InitialDire
 	if (!Prompt.empty())
 		Add(Label(Prompt));
 	
-	gtk_file_chooser_set_current_folder(GTK_FILE_CHOOSER(ButtonData), InitialDirectory.c_str());
+	//gtk_file_chooser_set_current_folder(GTK_FILE_CHOOSER(ButtonData), InitialDirectory.c_str());
+	if (!InitialDirectory.empty())
+		gtk_file_chooser_set_filename(GTK_FILE_CHOOSER(ButtonData), InitialDirectory.c_str());
 	AddFill(ButtonData);
 }
 
@@ -1263,6 +1265,11 @@ void DirectorySelect::SetAction(ActionHandler const &Handler)
 {
 	assert(!this->Handler);
 	this->Handler = Handler;
+}
+		
+void DirectorySelect::SetValue(String const &NewDirectory)
+{
+	gtk_file_chooser_set_filename(GTK_FILE_CHOOSER(ButtonData), NewDirectory.c_str());
 }
 
 String DirectorySelect::GetValue(void)
