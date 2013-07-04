@@ -1,8 +1,0 @@
-tup.dorulesfile()
-tup.dofile 'files.tup'
-
-for Index, Source in ipairs(RenGTKSources)
-do
-	Rule.Object(Source)
-end
-

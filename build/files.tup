@@ -1,8 +1,0 @@
-RenGTKSources = {'../gtkwrapper.cxx', '../gtkcairowrapper.cxx'}
-
-RenGTKObjects = {}
-for Index, Source in ipairs(RenGTKSources)
-do
-	table.insert(RenGTKObjects, NormalizeSlashes(tup.getcwd()) .. '/' .. StripPath(Source) .. '.o')
-end
-
